@@ -1,0 +1,107 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700;800;900&family=Noto+Sans+Thai:wght@500;600;700;800&display=block" rel="stylesheet">
+<style>
+:root{--bg:#0b0b0b;--lime:#c6f432;--ink:#f4f4f2;--mute:#8f8f8a;--line:#2c2c2a;--panel:#e9e9e6}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--bg);color:var(--ink);font-family:"Inter Tight","Noto Sans Thai",sans-serif;-webkit-font-smoothing:antialiased}
+.th{font-family:"Noto Sans Thai","Inter Tight",sans-serif}
+.page{position:relative;display:flex;flex-direction:column;overflow:hidden}
+.post{width:1080px;height:1350px;padding:60px 72px 54px}
+.story{width:1080px;height:1920px;padding:200px 84px 0}
+.top{display:flex;justify-content:space-between;align-items:center}
+.brand{display:flex;align-items:center;gap:14px;font-weight:900;font-size:30px;letter-spacing:.14em}
+.brand svg{width:44px;height:44px}
+.eyebrow{font-weight:800;font-size:22px;letter-spacing:.22em;color:var(--mute)}
+.pill{background:var(--lime);color:#0b0b0b;font-weight:900;font-size:22px;letter-spacing:.12em;padding:10px 20px;border-radius:999px}
+h1{font-weight:900;letter-spacing:-.045em;line-height:.9}
+h1 em{font-style:normal;color:var(--lime)}
+.post h1{font-size:112px;margin-top:26px;white-space:nowrap}
+.sub{font-weight:800;font-size:32px;line-height:1.2;letter-spacing:-.01em;margin-top:22px}
+.subth{font-weight:600;font-size:25px;color:var(--mute);margin-top:8px}
+.panel{position:relative;background:var(--panel);border-radius:28px;display:flex;justify-content:center;align-items:flex-end;gap:8px;overflow:hidden}
+.panel img{display:block;height:100%;width:auto}
+.post .panel{height:610px;margin-top:30px;padding:112px 30px 0}
+.price{position:absolute;left:28px;top:22px;color:#0b0b0b;font-weight:900;font-size:62px;letter-spacing:-.03em;line-height:1}
+.price small{display:block;font-weight:700;font-size:20px;letter-spacing:0;margin-top:8px;color:#3d3d3a}
+.tag{position:absolute;right:24px;top:24px;background:#0b0b0b;color:var(--lime);font-weight:800;font-size:19px;padding:9px 15px;border-radius:999px}
+.spots{display:flex;gap:12px;align-items:center}
+.dot{width:44px;height:44px;border-radius:50%;border:3px solid var(--lime);display:flex;align-items:center;justify-content:center;font-weight:900;color:#0b0b0b;font-size:24px}
+.dot.on{background:var(--lime)}
+.row{display:flex;justify-content:space-between;align-items:center;margin-top:28px;gap:24px}
+.note{font-weight:700;font-size:21px;line-height:1.25;color:var(--ink);text-align:right}
+.note span{color:var(--mute);display:block;font-weight:600}
+.foot{margin-top:auto;display:flex;justify-content:space-between;align-items:flex-end}
+.foot .when{font-weight:800;font-size:28px}
+.foot .when b{color:var(--lime)}
+.handle{font-weight:900;font-size:34px;color:var(--lime);letter-spacing:-.02em}
+/* story */
+.story h1{font-size:150px;margin-top:40px}
+.story .sub{font-size:40px}
+.story .subth{font-size:31px}
+.story .panel{height:640px;margin-top:40px;padding:110px 24px 0}
+.story .price{font-size:86px;left:36px;top:30px}
+.story .price small{font-size:24px}
+.chips{display:flex;flex-wrap:wrap;gap:10px;margin-top:30px}
+.chips span{border:2px solid var(--line);border-radius:999px;padding:10px 18px;font-weight:700;font-size:26px}
+.chips span.hl{background:var(--lime);border-color:var(--lime);color:#0b0b0b}
+.cta{margin-top:auto;margin-bottom:360px;text-align:center}
+.cta .arrow{font-weight:900;font-size:40px;color:var(--lime);letter-spacing:.06em}
+.cta .arrow small{display:block;font-size:26px;color:var(--mute);letter-spacing:0;font-weight:600;margin-top:6px}
+/* counter */
+.big{font-weight:900;font-size:400px;letter-spacing:-.06em;line-height:.85;margin-top:90px}
+.big em{font-style:normal;color:var(--lime)}
+.grid10{display:grid;grid-template-columns:repeat(5,1fr);gap:26px;margin-top:70px;width:780px}
+.grid10 .dot{width:132px;height:132px;border-width:5px;font-size:64px}
+.msg{font-weight:900;font-size:62px;letter-spacing:-.025em;line-height:1.05;margin-top:70px}
+.msg2{font-weight:800;font-size:38px;color:var(--lime);margin-top:18px}
+.msgth{font-weight:600;font-size:32px;color:var(--mute);margin-top:16px}
+.last{font-weight:900;font-size:200px;letter-spacing:-.05em;line-height:.86;color:var(--lime);margin-top:50px}
+</style></head><body><div id="root"></div>
+<script>
+const q=new URLSearchParams(location.search),m=q.get("m")||"post",n=+(q.get("n")||0);
+const mark=`<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M3 14H29" stroke="#f4f4f2" stroke-width="2" stroke-dasharray="3 4" fill="none"/><path d="M3 28L12 21 18 24 29 6" stroke="#c6f432" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="24.1" cy="14" r="2.4" fill="#c6f432"/></svg>`;
+const brand=`<div class="brand">${mark}THRESHOLD</div>`;
+const dots=k=>Array.from({length:10},(_,i)=>`<div class="dot${i<k?" on":""}">${i<k?"✓":""}</div>`).join("");
+const R=document.getElementById("root");
+if(m==="post"){
+ R.innerHTML=`<div class="page post">
+  <div class="top"><span class="eyebrow">THRESHOLD · RACE SINGLET</span><span class="pill">PRE-ORDER OPEN</span></div>
+  <h1>OUR THRESHOLD<br><em>IS 10.</em></h1>
+  <p class="sub">We make our first race singlet once 10 runners pre-order.<br>Be one of them.</p>
+  <p class="subth th">ครบ 10 คน เราผลิตจริง มาเป็นหนึ่งใน 10 คนแรกกัน</p>
+  <div class="panel"><div class="price">฿990<small>S–XL</small></div><div class="tag">Free shipping on 2</div><img src="singlet-front.webp"><img src="singlet-back.webp"></div>
+  <div class="row"><div class="spots">${dots(0)}</div><div class="note">10 runners → we make it<span>Full refund if we don't</span></div></div>
+  <div class="foot"><div class="when">Closes <b>Sat 17 Oct</b> · Link in bio</div><div class="handle">@threshold.th</div></div>
+ </div>`;
+}else if(m==="story"){
+ R.innerHTML=`<div class="page story">
+  <div class="top">${brand}<span class="pill">PRE-ORDER OPEN</span></div>
+  <h1>RACE<br><em>SINGLET</em></h1>
+  <div class="panel"><div class="price">฿990<small>S–XL</small></div><img src="singlet-front.webp"><img src="singlet-back.webp"></div>
+  <div class="chips"><span>Regular fit</span><span>Quick-dry</span><span class="hl">Free shipping on 2</span></div>
+  <p class="sub">10 runners needed to start production. Full refund if we don't reach 10.</p>
+  <p class="subth th">ครบ 10 คนเริ่มผลิต ไม่ครบคืนเงินเต็มจำนวน · ปิดจองเสาร์ 17 ต.ค.</p>
+  <div class="cta"><div class="arrow">↓ PRE-ORDER HERE ↓<small>Closes Sat 17 Oct</small></div></div>
+ </div>`;
+}else if(m==="count"){
+ const left=10-n,done=n>=10;
+ R.innerHTML=`<div class="page story">
+  <div class="top">${brand}<span class="eyebrow">PRE-ORDER UPDATE</span></div>
+  <div class="big"${n>=10?' style="font-size:330px"':""}><em>${n}</em>/10</div>
+  <div class="grid10">${dots(n)}</div>
+  ${done?`<div class="msg">WE CROSSED<br>THE LINE.</div><div class="msg2">Production starts. Thank you, runners 🙏</div><div class="msgth th">ครบ 10 คนแล้ว! เริ่มผลิตเลย ขอบคุณทุกคน 🙏</div>`
+  :`<div class="msg">${n} runner${n===1?"":"s"} in.<br>Thank you 🙏</div><div class="msg2">${left} to go · closes Sat 17 Oct</div><div class="msgth th">ขอบคุณนักวิ่ง ${n} คนแรก อีก ${left} คน ผลิตจริง!</div>`}
+  <div class="cta"><div class="arrow">${done?"Still open until Sat 17 Oct":"Link in bio"}<small>@threshold.th</small></div></div>
+ </div>`;
+}else if(m==="last"){
+ R.innerHTML=`<div class="page story">
+  <div class="top">${brand}<span class="pill">PRE-ORDER</span></div>
+  <div class="last">LAST<br>DAY.</div>
+  <p class="sub">Pre-orders close tonight at 23:59.</p>
+  <p class="subth th">วันสุดท้าย! ปิดจองคืนนี้ 23:59</p>
+  <div class="panel" style="height:600px"><div class="price">฿990<small>S–XL · Free shipping on 2</small></div><img src="singlet-front.webp" style="margin-left:180px"></div>
+  <div class="cta"><div class="arrow">↓ PRE-ORDER HERE ↓<small>Full refund if we don't reach 10</small></div></div>
+ </div>`;
+}
+</script></body></html>

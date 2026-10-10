@@ -1,0 +1,3 @@
+# /arena tournament runs (hundreds of sub-agent files per run)
+.arena/
+__pycache__/

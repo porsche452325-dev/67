@@ -1,0 +1,361 @@
+<title>THRESHOLD First 10</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&family=Hanken+Grotesk:wght@400;600;700&family=Prompt:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: one working column (goal + order count, why, plan, messages, posts) in THRESHOLD's black, paper grey and lime */
+:root{
+ --bg:#ECECE8;--surface:#FFFFFF;--fg:#0D0D0D;--mut:#5B5B55;--rule:#0D0D0D1F;--chip:#0D0D0D0B;--lime:#C3F53C;--on-lime:#0D0D0D;
+ --disp:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;
+ --body:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+ --thai:"Prompt","Hanken Grotesk",system-ui,sans-serif;
+ --mono:"IBM Plex Mono","SF Mono",Consolas,monospace;
+ --neutral:#5B5B55;--neutral-soft:#0D0D0D0F;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0D0D0D;--surface:#171716;--fg:#ECECE8;--mut:#A3A39C;--rule:#ECECE826;--chip:#ECECE810;--neutral:#C9C9C2;--neutral-soft:#ECECE81A;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0D0D0D;--surface:#171716;--fg:#ECECE8;--mut:#A3A39C;--rule:#ECECE826;--chip:#ECECE810;--neutral:#C9C9C2;--neutral-soft:#ECECE81A;color-scheme:dark}
+*,*::before,*::after{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:400 16px/1.55 var(--body);padding-inline:16px;padding-block:28px 72px}
+.wrap{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:48px}
+h1,h2,h3{margin:0;text-wrap:balance}
+h1,h2{font-family:var(--disp);font-weight:900;line-height:.95;letter-spacing:.005em}
+h1{font-size:clamp(68px,17vw,120px)}
+h2{font-size:clamp(36px,7.5vw,48px)}
+h3{font-size:17px;font-weight:700;line-height:1.3}
+p{margin:0}
+.eyebrow{font-size:13px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--mut)}
+.lead{font-size:19px;max-width:58ch}
+.muted{color:var(--mut)}
+section,header{display:flex;flex-direction:column;gap:16px}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:14px;padding:18px;min-width:0}
+.btn{font:700 15px/1 var(--body);border:1.5px solid var(--fg);background:transparent;color:var(--fg);border-radius:999px;padding:0 16px;min-height:42px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn.solid{background:var(--fg);color:var(--bg)}
+.btn.lime{background:var(--lime);border-color:var(--lime);color:var(--on-lime)}
+.btn:focus-visible,.seg button:focus-visible,input:focus-visible,.task input:focus-visible{outline:3px solid var(--fg);outline-offset:2px}
+/* order count */
+.tracker{display:grid;grid-template-columns:1fr auto;gap:14px 16px;align-items:center}
+.count{font:900 76px/.9 var(--disp);font-variant-numeric:tabular-nums}
+.count span{color:var(--mut);font-size:40px}
+.pm{display:flex;gap:8px}
+.pm .btn{width:52px;font-size:24px;padding:0}
+.bar{grid-column:1/-1;display:grid;grid-template-columns:repeat(10,1fr);gap:5px}
+.bar i{height:12px;border-radius:999px;background:var(--chip);border:1px solid var(--rule)}
+.bar i.on{background:var(--lime);border-color:var(--lime)}
+.next{grid-column:1/-1;font-size:15px}
+.next b{background:var(--lime);color:var(--on-lime);padding:1px 7px;border-radius:6px;font-weight:700}
+/* why */
+.why{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.why li{display:grid;grid-template-columns:7.5rem 1fr;gap:16px;align-items:baseline}
+.why .k{font:900 34px/1 var(--disp)}
+.why p{min-width:0}
+@media (max-width:520px){.why li{grid-template-columns:1fr;gap:4px}}
+/* plan */
+.days{display:grid;gap:12px}
+.day{display:grid;gap:10px}
+.day.past{opacity:.62}
+.dayhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.dayhead h3{font:800 26px/1 var(--disp);letter-spacing:.01em}
+.pill{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:var(--lime);color:var(--on-lime)}
+.pill.ghost{background:transparent;color:var(--mut);border:1px solid var(--rule)}
+.tasks{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.task{display:grid;grid-template-columns:22px 1fr;gap:12px;align-items:start;cursor:pointer}
+.task input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--fg);cursor:pointer}
+.task span{min-width:0}
+.task input:checked+span{color:var(--mut);text-decoration:line-through;text-decoration-thickness:1px}
+.task em,.repeat em{font-style:normal;font-weight:700}
+.repeat{margin:0}
+/* messages */
+.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+.seg{display:inline-flex;border:1.5px solid var(--fg);border-radius:999px;padding:3px}
+.seg button{font:700 15px/1 var(--body);border:0;background:transparent;color:var(--fg);padding:0 16px;min-height:36px;border-radius:999px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.field{display:grid;gap:6px;flex:1 1 260px;min-width:0}
+.field label{font-size:13px;font-weight:700;color:var(--mut)}
+.field input{font:500 15px var(--body);color:var(--fg);background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:10px 12px;width:100%;min-width:0}
+.scripts{display:grid;gap:12px}
+.script{display:grid;gap:10px}
+.script .top{display:flex;justify-content:space-between;align-items:start;gap:12px}
+.script .top div{display:grid;gap:2px;min-width:0}
+.script .when{font-size:14px;color:var(--mut)}
+.txt{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--chip);border-radius:10px;padding:12px 14px;font-size:15.5px;line-height:1.6;user-select:text;-webkit-user-select:text}
+.txt.th{font-family:var(--thai);font-size:15px;line-height:1.75}
+.txt mark{background:var(--lime);color:var(--on-lime);border-radius:4px;padding:0 3px}
+.copy{flex:none}
+.copy[data-done]{background:var(--lime);border-color:var(--lime);color:var(--on-lime)}
+/* posts */
+.posts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.counters{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+@media (max-width:560px){.counters{gap:6px}.counters figcaption span{display:none}.posts figcaption{font-size:13px}}
+figure{margin:0;display:grid;gap:6px;align-content:start;position:relative}
+figure img{width:100%;height:auto;border-radius:10px;border:1px solid var(--rule);display:block;background:#0D0D0D}
+figcaption{font-size:14px;line-height:1.35}
+figcaption b{display:block}
+figcaption span{color:var(--mut)}
+figure.now img{outline:4px solid var(--lime);outline-offset:2px}
+figure .flag{position:absolute;top:8px;left:8px;background:var(--lime);color:var(--on-lime);font-size:12px;font-weight:700;padding:3px 8px;border-radius:999px}
+.note{font-size:14px;color:var(--mut)}
+/* ad plan */
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:600px){.tiles{grid-template-columns:1fr}}
+.tile{display:grid;gap:4px;align-content:start}
+.fig{font:600 30px/1.1 var(--mono);font-variant-numeric:tabular-nums}
+.tile .lbl{font-weight:700;font-size:15px}
+.tile p{font-size:14px;color:var(--mut)}
+.status{display:inline-block;padding:2px 8px;border-radius:3px;font:700 12px/1.6 var(--body);text-transform:uppercase;letter-spacing:.05em;background:var(--neutral-soft);color:var(--neutral)}
+.verdict{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.recs{display:grid;gap:12px}
+.rec{display:grid;gap:10px}
+.rec .head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.rec .impact{font:600 14px var(--mono);background:var(--lime);color:var(--on-lime);padding:3px 8px;border-radius:4px;white-space:nowrap}
+.rec dl{display:grid;grid-template-columns:7rem 1fr;gap:6px 14px;margin:0;font-size:15px}
+.rec dt{font-weight:700;color:var(--mut)}
+.rec dd{margin:0;min-width:0}
+@media (max-width:520px){.rec dl{grid-template-columns:1fr;gap:2px}.rec dd{margin-bottom:8px}}
+.rec dl.gate{background:var(--chip);border-radius:10px;padding:14px;font-size:14.5px}
+.gate dd{font-family:var(--mono);font-size:13.5px;line-height:1.55}
+.steps-list{margin:0;padding-left:1.3em;display:grid;gap:6px;font-size:15px}
+footer{border-top:1px solid var(--rule);padding-top:20px;font-size:15px;color:var(--mut)}
+@media (prefers-reduced-motion:no-preference){.copy{transition:background .15s,color .15s}}
+</style>
+
+<div class="wrap">
+ <header>
+  <span class="eyebrow">THRESHOLD · Race singlet pre-order</span>
+  <h1>First 10</h1>
+  <p class="lead">Get 10 pre-orders by <strong>Saturday 17 October, 23:59</strong>. Follow the plan, send the messages, post the images.</p>
+  <div class="card tracker" aria-live="polite">
+   <div><span class="eyebrow">Orders so far</span><div class="count" id="count">0<span>/10</span></div></div>
+   <div class="pm"><button class="btn" type="button" id="minus" aria-label="One less order">−</button><button class="btn solid" type="button" id="plus" aria-label="One more order">+</button></div>
+   <div class="bar" id="bar" aria-hidden="true"></div>
+   <p class="next" id="next"></p>
+  </div>
+  <p class="note">Tap + each time a payment is confirmed. The count is saved on this device only.</p>
+ </header>
+
+ <section aria-labelledby="why-h">
+  <h2 id="why-h">Why nobody has bought yet</h2>
+  <ul class="why card">
+   <li><span class="k">9</span><p>followers on @threshold.th. Even a great post reaches a handful of people, so your first 10 buyers will come from people you message yourself.</p></li>
+   <li><span class="k">Bio</span><p>still says <em>COMING SOON</em> and links to thresholdth.netlify.app. Change it to say the pre-order is open, and link it to your pre-order page.</p></li>
+   <li><span class="k">Trust</span><p>THRESHOLD is new, and people are asked to pay before production. Personal messages, real runners wearing it, and a visible count like 3/10 build that trust.</p></li>
+  </ul>
+ </section>
+
+ <section aria-labelledby="plan-h">
+  <h2 id="plan-h">The plan</h2>
+  <div class="days" id="days"></div>
+ </section>
+
+ <section aria-labelledby="msg-h">
+  <h2 id="msg-h">Messages</h2>
+  <p class="muted">Send to one person at a time and change the first line so it sounds like you. Don't send the same message to lots of strangers: Instagram limits accounts that do.</p>
+  <div class="controls">
+   <div class="seg" role="group" aria-label="Message language"><button type="button" id="l-th" aria-pressed="true">ภาษาไทย</button><button type="button" id="l-en" aria-pressed="false">English</button></div>
+   <div class="field"><label for="link">Your pre-order link</label><input id="link" type="url" inputmode="url" autocomplete="off" spellcheck="false"></div>
+  </div>
+  <div class="scripts" id="scripts"></div>
+ </section>
+
+ <section aria-labelledby="posts-h">
+  <h2 id="posts-h">Posts and stories</h2>
+  <p class="muted">Long-press an image to save it, or use the copies in the chat with Claude.</p>
+  <div class="posts" id="posts"></div>
+  <h3>Counter stories</h3>
+  <p class="muted">Post the matching one after each confirmed order. The highlighted one is next.</p>
+  <div class="counters" id="counters"></div>
+ </section>
+
+ <section id="ad" aria-labelledby="ad-h">
+  <h2 id="ad-h">Instagram ad</h2>
+  <p class="muted">Optional. Your personal messages come first: they're free and they're where the first orders usually come from. This is a small test of whether strangers stop for the post.</p>
+  <div class="tiles">
+   <div class="card tile"><div class="fig">THB 0</div><div class="lbl">Spent on ads so far</div><p>No ads have run yet, so there's nothing to judge.</p></div>
+   <div class="card tile"><div class="fig">THB 500</div><div class="lbl">Proposed test</div><p>THB 100 a day, Mon 12 to Fri 16 Oct. It stops by itself.</p></div>
+   <div class="card tile"><div class="fig">THB 990</div><div class="lbl">One order</div><p>One order from the ad brings in more than the test costs, before your cost per shirt.</p></div>
+  </div>
+  <div class="card verdict"><span class="status">No verdict</span><span>No campaigns running and no data yet. After the test there will be a first read, not a verdict: THB 500 is too little to prove anything.</span></div>
+  <div class="recs">
+   <article class="card rec">
+    <div class="head"><h3>1. Fix your bio before spending anything</h3><span class="impact">THB 0</span></div>
+    <dl><dt>Why</dt><dd>The ad sends people to your profile, and the bio still says COMING SOON. Every baht you spend lands there.</dd>
+    <dt>Change</dt><dd>Use the <em>Instagram bio</em> text above and link it to your pre-order page.</dd>
+    <dt>Watch</dt><dd>Whether profile visitors start sending messages.</dd></dl>
+   </article>
+   <article class="card rec">
+    <div class="head"><h3>2. Boost the launch post</h3><span class="impact">+THB 500 once</span></div>
+    <dl><dt>Why</dt><dd>Your posts reach about 9 people. A boost puts the post in front of runners in Bangkok who don't follow you yet.</dd>
+    <dt>Goal</dt><dd><em>More messages</em>. People who are interested message you, and you sell one to one, the way that works best for you right now.</dd>
+    <dt>Watch</dt><dd>Messages from the ad, and how many of those turn into orders.</dd></dl>
+<dl class="gate"><dt>Change</dt><dd>Boost the launch post (“OUR THRESHOLD IS 10”)</dd>
+    <dt>Costs today</dt><dd>THB 0, no ads running</dd>
+    <dt>After</dt><dd>THB 500 in total, THB 100 a day for 5 days</dd>
+    <dt>Net</dt><dd>+THB 500 once. With no history I can't predict orders; it could bring none. One order (THB 990) covers it in revenue.</dd>
+    <dt>Reversible</dt><dd>Yes. Stop the boost any time; you only pay for what has already run.</dd></dl>
+    <ol class="steps-list">
+     <li>Post the launch post and fix your bio first.</li>
+     <li>Open the post and tap <em>Boost post</em>. No button? Settings → Account type and tools → Switch to professional account (free).</li>
+     <li>Goal: <em>More messages</em>.</li>
+     <li>Audience: <em>Create your own</em>. Location Bangkok, age 20–45, interests Running, Marathon and Jogging.</li>
+     <li>Budget and duration: THB 100 a day for 5 days. Check the estimated reach Instagram shows.</li>
+     <li>Add a payment method if asked, then tap <em>Boost post</em>. Instagram reviews it first, usually within a day.</li>
+    </ol>
+   </article>
+   <article class="card rec">
+    <div class="head"><h3>3. Ask every buyer where they found you</h3><span class="impact">THB 0</span></div>
+    <dl><dt>Why</dt><dd>Instagram will count messages and profile visits, but your orders arrive on LINE, where it can't see them. The two numbers won't match.</dd>
+    <dt>Change</dt><dd><em>After someone orders</em> now asks how they found THRESHOLD.</dd>
+    <dt>Steer by</dt><dd>Orders where the buyer says Instagram ad. Instagram's own count is the optimistic version.</dd></dl>
+   </article>
+  </div>
+  <h3>Caption openings to test</h3>
+  <p class="muted">A boost uses the post's own caption. Run only A this time: THB 500 can't tell three versions apart. Keep B and C for the next drop.</p>
+  <div class="scripts" id="ads"></div>
+  <div class="card rec">
+   <div class="head"><h3>Check back on Sat 17 Oct</h3><span class="status">After the test</span></div>
+   <dl><dt>Send Claude</dt><dd>A screenshot of the boost results, plus how many buyers said they found you through the ad.</dd>
+   <dt>Wrong call if</dt><dd>Lots of messages but no orders: people are curious but don't trust paying yet, so fix the offer before spending more. Very few messages: the opening or the audience missed, so try B or C next time.</dd></dl>
+  </div>
+  <p class="note">No voice profile is on file. These are written from your bio and pre-order page. Send Claude three captions you liked and the wording can match your voice.</p>
+ </section>
+
+ <footer>Under 5 orders on Wednesday 14 October? Ask Claude to move the closing date to 31 October. The pre-order page, the images and these messages get updated together.</footer>
+</div>
+
+<script>
+const SHOP="https://claude.ai/artifact/3PonQR9HrRBAEQc3CmYd7J";
+const store={get(k,d){try{const v=localStorage.getItem("f10-"+k);return v===null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem("f10-"+k,JSON.stringify(v))}catch(e){}}};
+let lang=store.get("lang","th"),count=store.get("count",0),link=store.get("link",SHOP),done=store.get("done",{});
+const $=id=>document.getElementById(id);
+const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+const DAYS=[
+ {d:"2026-10-10",t:"Sat 10 Oct",tasks:[
+  ["bio","Change your Instagram bio to the text in <em>Instagram bio</em> below, and set the bio link to your pre-order page."],
+  ["post","Post the <em>launch post</em> with the caption below, and the <em>launch story</em> with a link sticker under the arrow."],
+  ["list","Write down 40 people you know who run: friends, coworkers, family, your run club, people you follow on Strava."],
+  ["dm1","Send <em>Friends who run</em> to the first 20, one at a time."]]},
+ {d:"2026-10-11",t:"Sun 11 Oct",tasks:[
+  ["run","Join a Sunday morning group run, at a run club or your usual park. Wear THRESHOLD if you have a sample, and show the pre-order page on your phone."],
+  ["dm2","Send <em>Friends who run</em> to the other 20."]]},
+ {d:"2026-10-12",t:"Mon 12 Oct",tasks:[
+  ["groups","Post <em>Running groups</em> in 2–3 running groups or LINE OpenChats. Ask the admin first where selling isn't allowed."],
+  ["boost","Optional: boost the launch post with THB 500, spread over 5 days (THB 100 a day). Exact taps in <a href=\"#ad\">Instagram ad</a> below."]]},
+ {d:"2026-10-13",t:"Tue 13 Oct",tasks:[
+  ["follow","Send <em>Follow-up</em> once to everyone who said maybe."],
+  ["reply","Reply to every comment and message within an hour."]]},
+ {d:"2026-10-14",t:"Wed 14 Oct",tasks:[
+  ["check","Checkpoint. Under 5 orders: ask Claude to move the closing date to 31 October rather than refunding. 5 or more: keep going."]]},
+ {d:"2026-10-15",t:"Thu 15 Oct",tasks:[
+  ["line","Post a story or reel about the lime line across the chest: “That line is your threshold.”"],
+  ["buddy","Ask every buyer to send the link to one running friend, using <em>After someone orders</em>."]]},
+ {d:"2026-10-16",t:"Fri 16 Oct",tasks:[
+  ["tmrw","Repost the launch story with the text “Closes tomorrow”."],
+  ["unpaid","Message everyone who said yes but hasn't paid yet."]]},
+ {d:"2026-10-17",t:"Sat 17 Oct",tasks:[
+  ["last","Post the <em>Last day</em> story in the morning and again at 6 PM. Pre-orders close at 23:59."],
+  ["adcheck","If you boosted: send Claude a screenshot of the boost results, plus how many buyers said they found you through the ad."]]}
+];
+
+const SCRIPTS=[
+ {id:"friends",t:"Friends who run",w:"LINE or Instagram DM, one person at a time.",
+  th:"[ชื่อ] ช่วงนี้ยังวิ่งอยู่มั้ย 🏃\nเราเพิ่งเริ่มทำแบรนด์เสื้อวิ่งเล็กๆ ชื่อ THRESHOLD ตัวแรกเป็นเสื้อกล้ามใส่วิ่งงานแข่ง ราคา 990 บาท\nเปิดพรีออเดอร์ถึงเสาร์ 17 ต.ค. นี้ ต้องมีคนจองครบ 10 ตัวถึงจะเริ่มผลิต ถ้าไม่ครบคืนเงินเต็มจำนวน\nฝากดูหน่อยนะ หรือถ้ามีเพื่อนที่วิ่งก็ส่งต่อได้เลย ขอบคุณมากๆ 🙏\n{link}",
+  en:"Hey [name], still running these days? 🏃\nI just started a small running apparel brand called THRESHOLD. Our first piece is a race singlet, ฿990.\nPre-orders are open until Sat 17 Oct. We need 10 orders to start production, and everyone gets a full refund if we don't get there.\nIt would mean a lot if you took a look, or passed it to a friend who runs 🙏\n{link}"},
+ {id:"groups",t:"Running groups",w:"LINE OpenChat, Facebook running groups, your Strava club. Pick ครับ or ค่ะ.",
+  th:"สวัสดี[ครับ/ค่ะ] ขออนุญาตแอดมินนะ[ครับ/คะ] 🙏\nเราเป็นนักวิ่งในกรุงเทพฯ กำลังทำแบรนด์เสื้อวิ่งเล็กๆ ชื่อ THRESHOLD\nตัวแรกเป็นเสื้อกล้ามวิ่งวันแข่ง ผ้าโพลีเอสเตอร์แห้งไว ทรงปกติ ไซส์ S–XL ราคา 990 บาท (สั่ง 2 ตัวส่งฟรี)\nเปิดพรีออเดอร์ถึง 17 ต.ค. ครบ 10 ตัวเริ่มผลิต ไม่ครบคืนเงินเต็มจำนวน\nอยากได้ความเห็นจากนักวิ่งตัวจริงด้วย ติชมได้เลย[ครับ/ค่ะ] 👇\n{link}",
+  en:"Hi everyone, hope it's OK to share this here (thanks, admins 🙏)\nI'm a runner in Bangkok starting a small running apparel brand called THRESHOLD.\nOur first piece is a race singlet: quick-dry polyester, regular fit, S–XL, ฿990 (free shipping when you order 2).\nPre-orders are open until 17 Oct. We start production at 10 orders, and everyone gets a full refund if we don't reach 10.\nI'd love feedback from real runners too 👇\n{link}"},
+ {id:"engaged",t:"People who comment",w:"Only people who already liked or commented on your posts. Ask for an opinion, not a sale.",
+  th:"ขอบคุณที่แวะมาคอมเมนต์นะ 😄\nขอความเห็นหน่อย เรากำลังจะผลิตเสื้อกล้ามวิ่งตัวแรก {link}\nถ้าเป็นคุณ จะใส่ตัวนี้วิ่งงานแข่งมั้ย ติได้เต็มที่เลย",
+  en:"Thanks for the comment 😄\nQuick question: we're about to make our first race singlet {link}\nWould you race in it? Honest feedback welcome."},
+ {id:"follow",t:"Follow-up",w:"Two days later, once, only to people who said maybe. It fills in your current count.",
+  th:"เรื่องเสื้อวิ่งเมื่อวันก่อน ไม่ต้องรีบนะ 😊 แค่มาบอกว่าปิดจองเสาร์นี้ (17 ต.ค.) ตอนนี้ได้แล้ว {count}/10 ตัว\nถ้าไม่แน่ใจไซส์ บอกไซส์เสื้อวิ่งที่ใส่ประจำมาได้ เดี๋ยวช่วยเลือกให้",
+  en:"No pressure on the singlet 😊 Just a heads-up: pre-orders close this Saturday (17 Oct), and we're at {count}/10.\nNot sure about your size? Tell me the running shirt size you usually wear and I'll help you pick."},
+ {id:"thanks",t:"After someone orders",w:"Right after you confirm their payment. Then post the counter story.",
+  th:"ได้รับยอดแล้ว ขอบคุณมากๆ ที่เป็นหนึ่งใน 10 คนแรกของ THRESHOLD 🙏\nขอแท็กขอบคุณในสตอรี่ได้มั้ย? แล้วขอถามนิดนึง เจอ THRESHOLD จากไหน (เพื่อน / IG / กลุ่มวิ่ง)?\nถ้ามีเพื่อนวิ่งที่น่าจะชอบ ฝากส่งลิงก์นี้ให้หน่อยนะ {link}",
+  en:"Payment received. Thank you so much for being one of THRESHOLD's first 10 🙏\nCan I tag you in a thank-you story? Quick question too: how did you find THRESHOLD (a friend, Instagram, a running group)?\nIf you have a running friend who'd like it, please send them this link: {link}"},
+ {id:"reserve",t:"Interested, but unsure about paying",w:"Optional. Use it only if you're OK holding unpaid reservations until you reach 10.",
+  th:"จองชื่อไว้ก่อนได้นะ ยังไม่ต้องโอน ถ้าครบ 10 ตัวเมื่อไหร่ เดี๋ยวทักไปให้โอนก่อนเริ่มผลิต",
+  en:"You can reserve now and pay later. Once we reach 10, I'll message you to pay before production starts."},
+ {id:"bio",t:"Instagram bio",w:"Edit profile → Bio. Then set the link to your pre-order page.",both:true,
+  th:"THRESHOLD · running apparel from Bangkok 🇹🇭\n🟢 RACE SINGLET · pre-order open until 17 Oct\n฿990 · ส่งฟรีเมื่อสั่ง 2 ตัว ↓"},
+ {id:"caption",t:"Caption for the launch post",w:"Paste under the launch post.",both:true,
+  th:"Our threshold is 10. 🟢\nTHRESHOLD's first race singlet only gets made if 10 runners pre-order by Sat 17 Oct. If we don't reach 10, everyone gets a full refund.\n฿990 · S–XL · regular fit · quick-dry · free shipping when you order 2.\nThe lime line across the chest? That's your threshold.\n👉 Pre-order: link in bio\n\nเสื้อกล้ามวิ่งตัวแรกของ THRESHOLD จะผลิตจริงเมื่อมีนักวิ่งจองครบ 10 คน ภายในเสาร์ 17 ต.ค. ถ้าไม่ครบคืนเงินเต็มจำนวน\n990 บาท · ไซส์ S–XL · ทรงปกติ · แห้งไว · สั่ง 2 ตัวส่งฟรี\nเส้นสีเขียวที่พาดอก คือเส้นขีดจำกัดของคุณ\n👉 สั่งจองได้ที่ลิงก์ในโปรไฟล์\n\n#threshold #วิ่ง #นักวิ่ง #เสื้อวิ่ง #runningthailand #bangkokrunners"}
+];
+
+const ADS=[
+ {id:"adA",t:"A · tests the offer: help us reach 10",w:"Your launch post caption already opens like this. Boost that post.",both:true,
+  th:"Our threshold is 10. 🟢 We only make our first race singlet if 10 runners pre-order by Sat 17 Oct.\nครบ 10 คน เราผลิตจริง เสื้อกล้ามวิ่งตัวแรกของ THRESHOLD เปิดพรีออเดอร์ถึงเสาร์ 17 ต.ค."},
+ {id:"adB",t:"B · tests the angle: the shirt itself",w:"Leads with what it is and the price.",both:true,
+  th:"Breathable, quick-dry race singlet. ฿990, S–XL, free shipping when you order 2. Pre-order until Sat 17 Oct.\nเสื้อกล้ามวิ่งวันแข่ง ระบายอากาศดี แห้งไว 990 บาท ไซส์ S–XL สั่ง 2 ตัวส่งฟรี พรีออเดอร์ถึงเสาร์ 17 ต.ค."},
+ {id:"adC",t:"C · tests the format: a question",w:"Opens with a question instead of a statement.",both:true,
+  th:"What do you race in? Our first race singlet is ฿990, breathable and quick-dry. 10 pre-orders and we make it.\nใส่อะไรวิ่งงานแข่ง? เสื้อกล้ามวิ่งตัวแรกของเรา 990 บาท ระบายอากาศดี แห้งไว ครบ 10 ตัวเราผลิตจริง"}
+];
+
+const POSTS=[
+ ["01-launch-post.png","Launch post","Feed, today. Use the caption above."],
+ ["02-launch-story.png","Launch story","Add a link sticker under the arrow."],
+ ["04-last-day-story.png","Last day","Story on Sat 17 Oct, morning and 6 PM."]
+];
+
+function fillText(s){return s.replace(/\{link\}/g,link||SHOP).replace(/\{count\}/g,Math.min(count,10))}
+function textFor(sc){return fillText(sc.both?sc.th:sc[lang])}
+
+function renderTracker(){
+ $("count").innerHTML=`${count}<span>/10</span>`;
+ $("bar").innerHTML=Array.from({length:10},(_,i)=>`<i class="${i<count?"on":""}"></i>`).join("");
+ $("minus").disabled=count<=0;
+ $("next").innerHTML=count===0?"After your first confirmed order, post <b>counter 1/10</b> and send <em>After someone orders</em>.":
+  count<10?`Post <b>counter ${count}/10</b> now. ${10-count} more to go.`:
+  "You reached 10. Post <b>counter 10/10</b>, then tell Claude so the pre-order page can show it.";
+}
+
+function renderDays(){
+ let today;try{today=new Date().toLocaleDateString("en-CA",{timeZone:"Asia/Bangkok"})}catch(e){today=""}
+ $("days").innerHTML=DAYS.map(day=>{
+  const isToday=day.d===today,past=today&&day.d<today;
+  const pill=isToday?'<span class="pill">Today</span>':past?'<span class="pill ghost">Done</span>':"";
+  return `<div class="card day${past?" past":""}"><div class="dayhead"><h3>${day.t}</h3>${pill}</div><ul class="tasks">${
+   day.tasks.map(([id,txt])=>`<li><label class="task"><input type="checkbox" data-task="${id}"${done[id]?" checked":""}><span>${txt}</span></label></li>`).join("")
+  }</ul></div>`;
+ }).join("")+`<div class="card day"><div class="dayhead"><h3>Every order</h3><span class="pill ghost">Repeat</span></div><p class="repeat">Tap + above, post the highlighted counter story, and send <em>After someone orders</em>.</p></div>`;
+}
+
+function card(sc){
+ const raw=textFor(sc),thai=sc.both?false:lang==="th";
+ const html=esc(raw).replace(/\[[^\]\n]+\]/g,m=>`<mark>${m}</mark>`);
+ return `<article class="card script"><div class="top"><div><h3>${sc.t}</h3><p class="when">${sc.w}</p></div><button class="btn copy" type="button" data-copy="${sc.id}">Copy</button></div><div class="txt${thai?" th":""}" id="txt-${sc.id}">${html}</div></article>`;
+}
+function renderAds(){$("ads").innerHTML=ADS.map(card).join("")}
+
+function renderScripts(){
+ $("l-th").setAttribute("aria-pressed",lang==="th");
+ $("l-en").setAttribute("aria-pressed",lang==="en");
+ $("scripts").innerHTML=SCRIPTS.map(card).join("");
+}
+
+function renderPosts(){
+ const fig=(f,t,w,extra="")=>`<figure${extra}><img src="${f}" alt="${esc(t)}" loading="lazy"><figcaption><b>${t}</b><span>${w}</span></figcaption></figure>`;
+ $("posts").innerHTML=POSTS.map(([f,t,w])=>fig(f,t,w)).join("");
+ const next=Math.min(Math.max(count,1),10);
+ $("counters").innerHTML=Array.from({length:10},(_,i)=>{
+  const n=i+1,now=n===next&&count>0;
+  return `<figure${now?' class="now"':""}>${now?'<span class="flag">Post now</span>':""}<img src="03-counter-${String(n).padStart(2,"0")}.png" alt="Counter story ${n} of 10" loading="lazy"><figcaption><b>${n}/10</b><span>After order ${n}</span></figcaption></figure>`;
+ }).join("");
+}
+
+function setCount(n){count=Math.max(0,Math.min(99,n));store.set("count",count);renderTracker();renderPosts();renderScripts();}
+$("minus").onclick=()=>setCount(count-1);
+$("plus").onclick=()=>setCount(count+1);
+$("l-th").onclick=()=>{lang="th";store.set("lang",lang);renderScripts()};
+$("l-en").onclick=()=>{lang="en";store.set("lang",lang);renderScripts()};
+$("link").value=link;
+$("link").addEventListener("input",e=>{link=e.target.value.trim()||SHOP;store.set("link",link);renderScripts()});
+$("days").addEventListener("change",e=>{const id=e.target.dataset.task;if(!id)return;done[id]=e.target.checked;store.set("done",done)});
+document.addEventListener("click",e=>{
+ const b=e.target.closest("[data-copy]");if(!b)return;
+ const sc=SCRIPTS.concat(ADS).find(s=>s.id===b.dataset.copy),text=textFor(sc);
+ const ok=()=>{b.dataset.done="";b.textContent="Copied";setTimeout(()=>{delete b.dataset.done;b.textContent="Copy"},1600)};
+ const fallback=()=>{const el=$("txt-"+sc.id),r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent="Selected, copy it";setTimeout(()=>{b.textContent="Copy"},2400)};
+ try{navigator.clipboard.writeText(text).then(ok,fallback)}catch(err){fallback()}
+});
+renderTracker();renderDays();renderScripts();renderAds();renderPosts();
+</script>
