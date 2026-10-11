@@ -1,0 +1,369 @@
+<title>Table Order</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+/* Layout: one phone-width column — store header, sticky language + category bar, menu list, fixed cart bar with a bottom sheet */
+:root {
+  --bg: #f5f6f4;
+  --surface: #ffffff;
+  --ink: #1d2421;
+  --muted: #66706b;
+  --line: #e1e5e2;
+  --seal: #b4233c;
+  --seal-ink: #ffffff;
+  --tile: #e9eeeb;
+  --font-display: "Gowun Batang", "Noto Serif KR", "Hiragino Mincho ProN", "Songti SC", serif;
+  --font-body: "IBM Plex Sans KR", "Hiragino Sans", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121614; --surface: #1b201e; --ink: #e8ece9; --muted: #9aa49f;
+    --line: #2b322f; --seal: #e0566c; --seal-ink: #1a0a0d; --tile: #242b28;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121614; --surface: #1b201e; --ink: #e8ece9; --muted: #9aa49f;
+  --line: #2b322f; --seal: #e0566c; --seal-ink: #1a0a0d; --tile: #242b28;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 560px; margin: 0 auto; padding-inline: 16px; padding-block: 0 120px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--seal); outline-offset: 2px; }
+
+header.store { padding-block: 24px 16px; display: flex; gap: 14px; align-items: center; }
+.seal { flex: none; width: 52px; height: 52px; border-radius: 10px; background: var(--seal); color: var(--seal-ink);
+  display: grid; place-items: center; font-family: var(--font-display); font-size: 26px; }
+.store h1 { margin: 0; font-family: var(--font-display); font-size: 24px; line-height: 1.2; text-wrap: balance; }
+.store .meta { color: var(--muted); font-size: 13px; display: flex; gap: 8px; flex-wrap: wrap; }
+.table-chip { border: 1px solid var(--seal); color: var(--seal); border-radius: 999px; padding: 0 10px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
+  margin-inline: -16px; padding: 8px 16px 0; border-bottom: 1px solid var(--line); }
+.langs { display: flex; gap: 6px; flex-wrap: wrap; padding-bottom: 10px; }
+.langs button { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 12px; font-size: 13px; }
+.langs button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.cats { display: flex; gap: 18px; overflow-x: auto; scrollbar-width: none; }
+.cats::-webkit-scrollbar { display: none; }
+.cats button { flex: none; background: none; border: 0; padding: 8px 0 10px; color: var(--muted); font-weight: 500; border-bottom: 2px solid transparent; }
+.cats button.on { color: var(--ink); border-bottom-color: var(--seal); }
+
+section.cat { padding-top: 22px; scroll-margin-top: 110px; }
+section.cat h2 { font-family: var(--font-display); font-size: 19px; margin: 0 0 4px; }
+.item { display: grid; grid-template-columns: 1fr auto; gap: 14px; padding-block: 16px; border-bottom: 1px solid var(--line); }
+.item:last-child { border-bottom: 0; }
+.item .txt { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.item h3 { margin: 0; font-size: 16px; font-weight: 600; }
+.item .desc { color: var(--muted); font-size: 13px; }
+.item .price { font-weight: 600; font-variant-numeric: tabular-nums; }
+.badge { align-self: flex-start; font-size: 11px; letter-spacing: .04em; color: var(--seal); border: 1px solid currentColor; border-radius: 4px; padding: 0 5px; }
+.pic { width: 92px; height: 92px; border-radius: 10px; background: var(--tile); display: grid; place-items: center;
+  font-family: var(--font-display); font-size: 34px; color: var(--muted); position: relative; }
+.pic .add { position: absolute; right: -6px; bottom: -6px; width: 34px; height: 34px; border-radius: 50%; border: 0;
+  background: var(--seal); color: var(--seal-ink); font-size: 22px; line-height: 1; box-shadow: 0 2px 6px rgb(0 0 0 / .2); }
+.pic .qty { position: absolute; left: 6px; top: 6px; background: var(--ink); color: var(--bg); border-radius: 999px;
+  min-width: 22px; height: 22px; font: 600 12px/22px var(--font-body); text-align: center; padding-inline: 6px; }
+
+.cartbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(transparent, var(--bg) 30%); }
+.cartbar button { width: 100%; max-width: 528px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;
+  border: 0; border-radius: 12px; background: var(--seal); color: var(--seal-ink); padding: 15px 18px; font-weight: 600; font-size: 16px; }
+.cartbar .count { background: var(--seal-ink); color: var(--seal); border-radius: 999px; padding: 0 9px; margin-right: 8px; font-variant-numeric: tabular-nums; }
+.cartbar .sum { font-variant-numeric: tabular-nums; }
+
+.scrim { position: fixed; inset: 0; background: rgb(0 0 0 / .45); z-index: 20; }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 21; background: var(--surface); border-radius: 18px 18px 0 0;
+  max-height: 85%; display: flex; flex-direction: column; max-width: 560px; margin: 0 auto;
+  padding-bottom: env(safe-area-inset-bottom, 0px); }
+.sheet header { display: flex; justify-content: space-between; align-items: center; padding: 18px 18px 10px; }
+.sheet h2 { margin: 0; font-family: var(--font-display); font-size: 20px; }
+.sheet .close { border: 0; background: none; font-size: 26px; line-height: 1; color: var(--muted); }
+.lines { overflow-y: auto; padding: 0 18px; }
+.line { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding-block: 12px; border-bottom: 1px solid var(--line); }
+.line .name { min-width: 0; font-weight: 500; }
+.line .sub { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.stepper { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; }
+.stepper button { border: 0; background: none; width: 34px; height: 34px; font-size: 18px; }
+.stepper span { min-width: 22px; text-align: center; font-variant-numeric: tabular-nums; }
+.sheet footer { padding: 14px 18px 18px; display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--line); }
+.total { display: flex; justify-content: space-between; font-weight: 600; font-size: 17px; font-variant-numeric: tabular-nums; }
+.primary { border: 0; border-radius: 12px; background: var(--seal); color: var(--seal-ink); padding: 15px; font-weight: 600; font-size: 16px; }
+.primary:disabled { opacity: .45; cursor: default; }
+.empty, .done { padding: 28px 18px; text-align: center; color: var(--muted); }
+.done h3 { color: var(--ink); font-family: var(--font-display); font-size: 22px; margin: 0 0 6px; }
+.done .no { font-size: 40px; font-family: var(--font-display); color: var(--seal); font-variant-numeric: tabular-nums; }
+.note { color: var(--muted); font-size: 12px; text-align: center; padding-top: 28px; }
+@media (prefers-reduced-motion: no-preference) {
+  .sheet { animation: up .22s ease-out; }
+  @keyframes up { from { transform: translateY(30px); opacity: .6; } }
+}
+</style>
+
+<div class="wrap">
+  <header class="store">
+    <div class="seal" aria-hidden="true">한</div>
+    <div>
+      <h1 id="storeName"></h1>
+      <div class="meta"><span class="table-chip" id="tableChip"></span><span id="hours"></span></div>
+    </div>
+  </header>
+
+  <div class="bar">
+    <div class="langs" id="langs" role="group" aria-label="Language"></div>
+    <nav class="cats" id="cats"></nav>
+  </div>
+
+  <main id="menu"></main>
+  <p class="note" id="note"></p>
+</div>
+
+<div class="cartbar" id="cartbar" hidden>
+  <button id="openCart" type="button"><span><span class="count" id="cartCount">0</span><span id="viewCart"></span></span><span class="sum" id="cartSum"></span></button>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden>
+  <header><h2 id="sheetTitle"></h2><button class="close" id="closeCart" type="button" aria-label="Close">×</button></header>
+  <div class="lines" id="lines"></div>
+  <footer id="sheetFoot">
+    <div class="total"><span id="totalLabel"></span><span id="totalSum"></span></div>
+    <button class="primary" id="placeOrder" type="button"></button>
+  </footer>
+</div>
+
+<script>
+const LANGS = [
+  { code: "ko", label: "한국어", locale: "ko-KR" },
+  { code: "en", label: "English", locale: "en-US" },
+  { code: "ja", label: "日本語", locale: "ja-JP" },
+  { code: "zh", label: "中文", locale: "zh-CN" },
+];
+
+const UI = {
+  ko: { store: "한옥 식당", table: "테이블", hours: "영업 11:00–22:00", add: "담기", cart: "장바구니", viewCart: "장바구니 보기",
+        total: "합계", order: "주문하기", empty: "아직 담은 메뉴가 없어요.", sent: "주문이 접수되었어요",
+        sentSub: "주방에서 준비 중입니다. 잠시만 기다려 주세요.", orderNo: "주문번호", again: "추가 주문하기",
+        best: "인기", spicy: "매운맛", each: "개",
+        note: "샘플 메뉴입니다. 가격은 원(₩) 기준이며 실제 주문은 전송되지 않습니다." },
+  en: { store: "Hanok Kitchen", table: "Table", hours: "Open 11:00–22:00", add: "Add", cart: "Your order", viewCart: "View cart",
+        total: "Total", order: "Place order", empty: "Nothing in your cart yet.", sent: "Order received",
+        sentSub: "The kitchen is preparing it now. Please wait at your table.", orderNo: "Order no.", again: "Order more",
+        best: "Popular", spicy: "Spicy", each: "",
+        note: "Sample menu. Prices are in Korean won (₩). No real order is sent." },
+  ja: { store: "韓屋食堂", table: "テーブル", hours: "営業 11:00–22:00", add: "追加", cart: "カート", viewCart: "カートを見る",
+        total: "合計", order: "注文する", empty: "カートは空です。", sent: "ご注文を受け付けました",
+        sentSub: "ただいま調理中です。少々お待ちください。", orderNo: "注文番号", again: "追加注文する",
+        best: "人気", spicy: "辛口", each: "個",
+        note: "サンプルメニューです。価格は韓国ウォン（₩）表示で、実際の注文は送信されません。" },
+  zh: { store: "韩屋食堂", table: "桌号", hours: "营业 11:00–22:00", add: "加入", cart: "购物车", viewCart: "查看购物车",
+        total: "合计", order: "下单", empty: "购物车还是空的。", sent: "订单已收到",
+        sentSub: "厨房正在准备，请在座位稍候。", orderNo: "订单号", again: "继续点餐",
+        best: "人气", spicy: "辣", each: "份",
+        note: "示例菜单。价格以韩元（₩）计，不会发送真实订单。" },
+};
+
+// Edit this list to match the real store's menu.
+const MENU = [
+  { id: "main", name: { ko: "식사", en: "Mains", ja: "お食事", zh: "主食" }, items: [
+    { id: "bibimbap", price: 11000, tags: ["best"],
+      name: { ko: "돌솥비빔밥", en: "Stone-Pot Bibimbap", ja: "石焼ビビンバ", zh: "石锅拌饭" },
+      desc: { ko: "뜨거운 돌솥에 나물, 계란, 고추장", en: "Rice, seasoned vegetables and egg in a sizzling stone bowl, with gochujang",
+              ja: "熱々の石鍋にナムル、卵、コチュジャン", zh: "热石锅中的米饭、野菜、鸡蛋配辣椒酱" } },
+    { id: "bulgogi", price: 15000, tags: ["best"],
+      name: { ko: "소불고기 정식", en: "Beef Bulgogi Set", ja: "牛プルコギ定食", zh: "烤牛肉套餐" },
+      desc: { ko: "간장 양념 소고기, 공기밥과 반찬", en: "Soy-marinated beef with rice and side dishes",
+              ja: "醤油ダレの牛肉、ご飯とおかず付き", zh: "酱油腌牛肉，配米饭和小菜" } },
+    { id: "jeyuk", price: 12000, tags: ["spicy"],
+      name: { ko: "제육볶음", en: "Spicy Stir-Fried Pork", ja: "豚肉の辛炒め", zh: "辣炒猪肉" },
+      desc: { ko: "고추장 양념 돼지고기 볶음", en: "Pork stir-fried in gochujang sauce",
+              ja: "コチュジャンで炒めた豚肉", zh: "辣椒酱炒猪肉" } },
+  ]},
+  { id: "stew", name: { ko: "찌개", en: "Stews", ja: "チゲ", zh: "炖汤" }, items: [
+    { id: "kimchi", price: 10000, tags: ["spicy"],
+      name: { ko: "김치찌개", en: "Kimchi Stew", ja: "キムチチゲ", zh: "泡菜汤" },
+      desc: { ko: "묵은지와 돼지고기, 두부", en: "Aged kimchi, pork and tofu",
+              ja: "熟成キムチ、豚肉、豆腐", zh: "陈年泡菜、猪肉和豆腐" } },
+    { id: "doenjang", price: 10000, tags: [],
+      name: { ko: "된장찌개", en: "Soybean Paste Stew", ja: "テンジャンチゲ", zh: "大酱汤" },
+      desc: { ko: "된장, 애호박, 두부, 버섯", en: "Fermented soybean paste with zucchini, tofu and mushrooms",
+              ja: "味噌、ズッキーニ、豆腐、きのこ", zh: "大酱、西葫芦、豆腐和蘑菇" } },
+    { id: "sundubu", price: 11000, tags: ["spicy"],
+      name: { ko: "해물순두부찌개", en: "Seafood Soft Tofu Stew", ja: "海鮮スンドゥブ", zh: "海鲜嫩豆腐汤" },
+      desc: { ko: "순두부, 바지락, 새우", en: "Silken tofu with clams and shrimp",
+              ja: "おぼろ豆腐、あさり、えび", zh: "嫩豆腐、蛤蜊和虾" } },
+  ]},
+  { id: "share", name: { ko: "곁들임", en: "To Share", ja: "シェア", zh: "分享" }, items: [
+    { id: "pajeon", price: 16000, tags: [],
+      name: { ko: "해물파전", en: "Seafood Scallion Pancake", ja: "海鮮チヂミ", zh: "海鲜葱饼" },
+      desc: { ko: "쪽파와 오징어, 새우를 넣은 전", en: "Crisp pancake with scallions, squid and shrimp",
+              ja: "ねぎ、いか、えび入り", zh: "香葱、鱿鱼和虾的煎饼" } },
+    { id: "tteok", price: 8000, tags: ["spicy"],
+      name: { ko: "떡볶이", en: "Tteokbokki", ja: "トッポッキ", zh: "炒年糕" },
+      desc: { ko: "쌀떡과 어묵, 매콤달콤 양념", en: "Rice cakes and fish cake in sweet-spicy sauce",
+              ja: "餅とおでん、甘辛ソース", zh: "年糕和鱼饼，甜辣酱" } },
+    { id: "rice", price: 1000, tags: [],
+      name: { ko: "공기밥", en: "Steamed Rice", ja: "ご飯", zh: "米饭" },
+      desc: { ko: "", en: "", ja: "", zh: "" } },
+  ]},
+  { id: "drink", name: { ko: "음료·주류", en: "Drinks", ja: "ドリンク", zh: "饮品" }, items: [
+    { id: "cola", price: 2500, tags: [],
+      name: { ko: "콜라", en: "Cola", ja: "コーラ", zh: "可乐" }, desc: { ko: "355ml", en: "355 ml", ja: "355ml", zh: "355毫升" } },
+    { id: "cider", price: 2500, tags: [],
+      name: { ko: "사이다", en: "Lemon-Lime Soda", ja: "サイダー", zh: "雪碧" }, desc: { ko: "355ml", en: "355 ml", ja: "355ml", zh: "355毫升" } },
+    { id: "soju", price: 5000, tags: [],
+      name: { ko: "소주", en: "Soju", ja: "焼酎", zh: "烧酒" }, desc: { ko: "360ml", en: "360 ml", ja: "360ml", zh: "360毫升" } },
+    { id: "beer", price: 5000, tags: [],
+      name: { ko: "맥주", en: "Beer", ja: "ビール", zh: "啤酒" }, desc: { ko: "500ml", en: "500 ml", ja: "500ml", zh: "500毫升" } },
+  ]},
+];
+
+const TABLE_NO = 7;
+const ITEMS = Object.fromEntries(MENU.flatMap(c => c.items.map(i => [i.id, i])));
+const $ = id => document.getElementById(id);
+
+function store(key, val) {
+  try { if (val === undefined) return localStorage.getItem(key); localStorage.setItem(key, val); } catch { return null; }
+}
+
+function detectLang() {
+  const saved = store("qr-lang");
+  if (LANGS.some(l => l.code === saved)) return saved;
+  const nav = (navigator.language || "ko").slice(0, 2);
+  return LANGS.some(l => l.code === nav) ? nav : "ko";
+}
+
+let lang = detectLang();
+let cart = {};
+let placed = null;
+
+const t = k => UI[lang][k];
+const won = n => "₩" + n.toLocaleString(LANGS.find(l => l.code === lang).locale);
+const cartCount = () => Object.values(cart).reduce((a, b) => a + b, 0);
+const cartTotal = () => Object.entries(cart).reduce((s, [id, q]) => s + ITEMS[id].price * q, 0);
+
+function setLang(code) {
+  lang = code;
+  store("qr-lang", code);
+  document.documentElement.lang = code;
+  render();
+}
+
+function renderLangs() {
+  $("langs").innerHTML = "";
+  for (const l of LANGS) {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = l.label; b.lang = l.code;
+    b.setAttribute("aria-pressed", l.code === lang);
+    b.onclick = () => setLang(l.code);
+    $("langs").append(b);
+  }
+}
+
+function renderMenu() {
+  $("cats").innerHTML = ""; $("menu").innerHTML = "";
+  MENU.forEach((c, i) => {
+    const tab = document.createElement("button");
+    tab.type = "button"; tab.textContent = c.name[lang]; tab.dataset.cat = c.id;
+    if (i === 0) tab.classList.add("on");
+    tab.onclick = () => document.getElementById("cat-" + c.id).scrollIntoView({ behavior: "smooth" });
+    $("cats").append(tab);
+
+    const sec = document.createElement("section");
+    sec.className = "cat"; sec.id = "cat-" + c.id;
+    sec.innerHTML = `<h2></h2>`;
+    sec.querySelector("h2").textContent = c.name[lang];
+    for (const it of c.items) {
+      const row = document.createElement("div");
+      row.className = "item";
+      const badges = it.tags.map(tag => `<span class="badge">${t(tag)}</span>`).join("");
+      row.innerHTML = `<div class="txt">${badges}<h3></h3><span class="desc"></span><span class="price">${won(it.price)}</span></div>
+        <div class="pic" aria-hidden="false"><span aria-hidden="true">${it.name.ko[0]}</span>
+        ${cart[it.id] ? `<span class="qty">${cart[it.id]}</span>` : ""}
+        <button class="add" type="button">+</button></div>`;
+      row.querySelector("h3").textContent = it.name[lang];
+      row.querySelector(".desc").textContent = it.desc[lang];
+      const add = row.querySelector(".add");
+      add.setAttribute("aria-label", `${t("add")}: ${it.name[lang]}`);
+      add.onclick = () => { cart[it.id] = (cart[it.id] || 0) + 1; placed = null; render(); };
+      sec.append(row);
+    }
+    $("menu").append(sec);
+  });
+}
+
+function renderCart() {
+  const n = cartCount();
+  $("cartbar").hidden = n === 0 || !$("sheet").hidden;
+  $("cartCount").textContent = n;
+  $("viewCart").textContent = t("viewCart");
+  $("cartSum").textContent = won(cartTotal());
+  $("sheetTitle").textContent = t("cart");
+  $("totalLabel").textContent = t("total");
+  $("totalSum").textContent = won(cartTotal());
+  $("placeOrder").textContent = t("order");
+  $("placeOrder").disabled = n === 0;
+
+  const lines = $("lines");
+  lines.innerHTML = "";
+  if (placed) {
+    $("sheetFoot").hidden = true;
+    lines.innerHTML = `<div class="done"><div class="no">#${placed}</div><h3></h3><p></p><button class="primary" type="button"></button></div>`;
+    lines.querySelector("h3").textContent = t("sent");
+    lines.querySelector("p").textContent = `${t("table")} ${TABLE_NO} · ${t("orderNo")} ${placed}. ${t("sentSub")}`;
+    const again = lines.querySelector("button");
+    again.textContent = t("again");
+    again.onclick = () => { placed = null; closeSheet(); };
+    return;
+  }
+  $("sheetFoot").hidden = false;
+  if (!n) { lines.innerHTML = `<p class="empty"></p>`; lines.firstChild.textContent = t("empty"); return; }
+  for (const [id, q] of Object.entries(cart)) {
+    const it = ITEMS[id];
+    const row = document.createElement("div");
+    row.className = "line";
+    row.innerHTML = `<div class="name"><div></div><div class="sub">${won(it.price)} × ${q}${t("each")}</div></div>
+      <div class="stepper"><button type="button" aria-label="−">−</button><span>${q}</span><button type="button" aria-label="+">+</button></div>`;
+    row.querySelector(".name > div").textContent = it.name[lang];
+    const [minus, plus] = row.querySelectorAll("button");
+    minus.onclick = () => { cart[id]--; if (!cart[id]) delete cart[id]; render(); };
+    plus.onclick = () => { cart[id]++; render(); };
+    lines.append(row);
+  }
+}
+
+function render() {
+  document.documentElement.lang = lang;
+  document.title = t("store");
+  $("storeName").textContent = t("store");
+  $("tableChip").textContent = `${t("table")} ${TABLE_NO}`;
+  $("hours").textContent = t("hours");
+  $("note").textContent = t("note");
+  renderLangs(); renderMenu(); renderCart(); syncTabs();
+}
+
+function openSheet() { $("sheet").hidden = false; $("scrim").hidden = false; renderCart(); $("closeCart").focus(); }
+function closeSheet() { $("sheet").hidden = true; $("scrim").hidden = true; renderCart(); }
+
+$("openCart").onclick = openSheet;
+$("closeCart").onclick = closeSheet;
+$("scrim").onclick = closeSheet;
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("sheet").hidden) closeSheet(); });
+$("placeOrder").onclick = () => {
+  placed = String(Math.floor(100 + Math.random() * 900));
+  cart = {};
+  render();
+};
+
+function syncTabs() {
+  const secs = [...document.querySelectorAll("section.cat")];
+  let cur = secs[0]?.id;
+  for (const s of secs) if (s.getBoundingClientRect().top < 140) cur = s.id;
+  document.querySelectorAll(".cats button").forEach(b => b.classList.toggle("on", "cat-" + b.dataset.cat === cur));
+}
+window.addEventListener("scroll", syncTabs, { passive: true });
+
+render();
+</script>
