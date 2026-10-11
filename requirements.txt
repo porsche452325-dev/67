@@ -1,0 +1,5 @@
+# Python tooling for video editing sessions (tracking, grading, compositing, audio)
+numpy==2.5.3
+opencv-contrib-python-headless==5.0.0.93
+pillow==12.3.0
+scipy==1.18.1
