@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Pre-Order Admin</title>
+<style>
+  :root { --bg: #0e0e10; --card: #1a1a1d; --text: #f4f4f5; --muted: #a1a1aa; --accent: #ffd60a; --border: #2e2e33; --ok: #4ade80; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, -apple-system, sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 24px; margin: 0 0 12px; }
+  .login { display: flex; gap: 8px; }
+  input { flex: 1; min-width: 0; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font: inherit; }
+  button { background: var(--accent); color: #111; border: 0; border-radius: 10px; padding: 8px 14px; font: inherit; font-weight: 700; cursor: pointer; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 14px 0; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+  .stat b { display: block; font-size: 22px; }
+  .stat span { color: var(--muted); font-size: 13px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 8px; }
+  .top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .paid { background: var(--ok); }
+  .unpaid { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  .err { color: #f87171; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Pre-orders</h1>
+  <form class="login" id="login">
+    <input type="password" id="pw" placeholder="Admin password" aria-label="Admin password">
+    <button>Load</button>
+  </form>
+  <p class="err" id="err"></p>
+  <div class="stats" id="stats"></div>
+  <div id="list"></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let pw = "";
+try { pw = sessionStorage.getItem("admin_pw") || ""; } catch (e) {}
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, { ...opts, headers: { "X-Admin-Password": pw } });
+  if (res.status === 401) throw new Error("Wrong password (or ADMIN_PASSWORD isn't set on the server).");
+  if (!res.ok) throw new Error("Server error " + res.status);
+  return res.json();
+}
+
+function stat(label, value) {
+  const d = document.createElement("div"); d.className = "stat";
+  const b = document.createElement("b"); b.textContent = value;
+  const s = document.createElement("span"); s.textContent = label;
+  d.append(b, s); return d;
+}
+
+async function load() {
+  $("err").textContent = "";
+  let orders;
+  try { orders = await api("/api/orders"); } catch (e) { $("err").textContent = e.message; return; }
+  try { sessionStorage.setItem("admin_pw", pw); } catch (e) {}
+
+  const shirts = orders.reduce((n, o) => n + Number(o.quantity), 0);
+  const paidMoney = orders.filter((o) => o.paid === "yes").reduce((n, o) => n + Number(o.total), 0);
+  const owed = orders.filter((o) => o.paid !== "yes").reduce((n, o) => n + Number(o.total), 0);
+  const bySize = {};
+  orders.forEach((o) => { const k = `${o.size} ${o.color}`; bySize[k] = (bySize[k] || 0) + Number(o.quantity); });
+
+  const st = $("stats"); st.innerHTML = "";
+  st.append(stat("orders", orders.length), stat("shirts", shirts), stat("paid", "$" + paidMoney), stat("still owed", "$" + owed));
+  Object.entries(bySize).sort().forEach(([k, v]) => st.append(stat(k, v)));
+
+  const list = $("list"); list.innerHTML = "";
+  orders.slice().reverse().forEach((o) => {
+    const c = document.createElement("div"); c.className = "card";
+    const top = document.createElement("div"); top.className = "top";
+    const title = document.createElement("div");
+    title.innerHTML = "<b></b> · <span></span>";
+    title.querySelector("b").textContent = `${o.order_id} — ${o.name}`;
+    title.querySelector("span").textContent = `${o.quantity}× ${o.size} ${o.color} · $${o.total}`;
+    const btn = document.createElement("button");
+    btn.className = o.paid === "yes" ? "paid" : "unpaid";
+    btn.textContent = o.paid === "yes" ? "✓ Paid" : "Mark paid";
+    btn.onclick = async () => { try { await api(`/api/orders/${encodeURIComponent(o.order_id)}/paid`, { method: "POST" }); load(); } catch (e) { $("err").textContent = e.message; } };
+    top.append(title, btn);
+    const meta = document.createElement("div"); meta.className = "muted";
+    meta.textContent = `${o.contact} · ${o.payment_method} · ${o.delivery === "ship" ? "Ship: " + o.address : "Pickup"} · ${o.created_at}`;
+    c.append(top, meta); list.appendChild(c);
+  });
+  if (!orders.length) list.textContent = "No orders yet.";
+}
+
+$("login").addEventListener("submit", (e) => { e.preventDefault(); pw = $("pw").value; load(); });
+if (pw) load();
+</script>
+</body>
+</html>

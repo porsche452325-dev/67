@@ -1,0 +1,27 @@
+{
+  "brand": "YOUR BRAND",
+  "shirt_name": "Drop 01 Tee",
+  "tagline": "Limited pre-order. Once it's gone, it's gone.",
+  "price": 30,
+  "currency": "$",
+  "sizes": ["S", "M", "L", "XL", "2XL"],
+  "colors": ["Black", "White"],
+  "fit": "Regular fit, true to size. Size up for an oversized look.",
+  "material": "100% cotton, heavyweight",
+  "preorder_deadline": "2026-11-15",
+  "ships_by": "2026-12-01",
+  "shipping": "Free local pickup, or $5 shipping in the US.",
+  "photos": ["photos/shirt-front.jpg", "photos/shirt-back.jpg"],
+  "payment": {
+    "cashapp": "$YourCashtag",
+    "venmo": "@YourVenmo",
+    "paypal": "paypal.me/YourName"
+  },
+  "socials": {
+    "instagram": "https://instagram.com/yourhandle",
+    "tiktok": "https://tiktok.com/@yourhandle",
+    "facebook": "",
+    "snapchat": ""
+  },
+  "owner_contact": "DM @yourhandle on Instagram"
+}
