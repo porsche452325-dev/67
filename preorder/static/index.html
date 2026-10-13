@@ -11,6 +11,7 @@
     --border: #2e2e33;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body { margin: 0; background: var(--bg); color: var(--text);
          font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   main { max-width: 560px; margin: 0 auto; padding: 16px; }
@@ -41,6 +42,10 @@
   .me { background: var(--bubble-me); color: var(--accent-text); align-self: flex-end; border-bottom-right-radius: 4px; }
   .typing { color: var(--muted); font-style: italic; }
   .order-ok { border: 1px solid var(--accent); }
+  .owner { background: #1d4ed8; align-self: flex-start; border-bottom-left-radius: 4px; }
+  .owner::before { content: "👤 Owner"; display: block; font-size: 11px; font-weight: 700; opacity: .8; }
+  .banner { background: #1d4ed8; color: #fff; font-size: 13px; text-align: center; padding: 7px 10px; }
+  .tab .off { color: #f87171; }
   form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border); }
   input { flex: 1; min-width: 0; background: var(--bg); color: var(--text); border: 1px solid var(--border);
           border-radius: 999px; padding: 11px 15px; font: inherit; }
@@ -74,6 +79,7 @@
       <button class="tab" role="tab" id="tab-helper" aria-selected="true" data-bot="helper">💬 Questions<small>Shirt Helper</small></button>
       <button class="tab" role="tab" id="tab-order" aria-selected="false" data-bot="order">🛒 Order now<small>Order Taker</small></button>
     </div>
+    <div class="banner" id="banner" hidden>👋 You're chatting with a real person from the shop now</div>
     <div class="log" id="log-helper" role="log" aria-live="polite"></div>
     <div class="log" id="log-order" role="log" aria-live="polite" hidden></div>
     <div class="quick" id="quick"></div>
@@ -95,6 +101,13 @@ if (!sessionId) {
 }
 let bot = "helper";
 let busy = false;
+let since = 0;          // last chat message number this page has seen
+try { since = Number(localStorage.getItem("preorder_since")) || 0; } catch (e) {}
+function setSince(n) {
+  since = Math.max(since, n);
+  try { localStorage.setItem("preorder_since", String(since)); } catch (e) {}
+}
+let ownerHasChat = false;
 const greeted = { helper: false, order: false };
 
 const greetings = {
@@ -152,7 +165,9 @@ async function send(text) {
     });
     const data = await res.json().catch(() => ({ reply: "Something went wrong, try again." }));
     typing.remove();
-    addMsg("bot", data.reply, data.order_id ? "order-ok" : "");
+    if (data.human) setOwnerMode(true);
+    if (data.reply) addMsg("bot", data.reply, data.order_id ? "order-ok" : "");
+    if (data.seq) setSince(data.seq);
     if (data.handoff && sentTo === "helper") {
       setTimeout(() => { switchTo("order"); }, 900);
     }
@@ -219,7 +234,36 @@ fetch("/api/shirt").then((r) => r.json()).then((s) => {
   });
 });
 
+function setOwnerMode(on) {
+  ownerHasChat = on;
+  $("banner").hidden = !on;
+}
+
+// Check for messages the owner typed (and whether the owner has taken over the chat).
+async function poll() {
+  if (document.hidden || busy) return;
+  try {
+    const r = await fetch(`/api/chat/updates?session_id=${encodeURIComponent(sessionId)}&since=${since}`);
+    const data = await r.json();
+    data.messages.forEach((m) => addMsg("owner", m.text));
+    if (data.human !== ownerHasChat) setOwnerMode(data.human);
+    if (data.seq < since) since = 0;  // server restarted and lost the old chat
+    setSince(data.seq);
+  } catch (e) {}
+}
+setInterval(poll, 4000);
+
+fetch("/api/shirt").then((r) => r.json()).then((s) => {
+  ["helper", "order"].forEach((b) => {
+    if (s.bots_on && !s.bots_on[b]) {
+      const small = $("tab-" + b).querySelector("small");
+      small.textContent = "offline"; small.className = "off";
+    }
+  });
+});
+
 switchTo("helper");
+poll();
 </script>
 </body>
 </html>

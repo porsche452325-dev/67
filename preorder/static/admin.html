@@ -6,62 +6,189 @@
 <meta name="robots" content="noindex">
 <title>Pre-Order Admin</title>
 <style>
-  :root { --bg: #0e0e10; --card: #1a1a1d; --text: #f4f4f5; --muted: #a1a1aa; --accent: #ffd60a; --border: #2e2e33; --ok: #4ade80; }
+  :root { --bg: #0e0e10; --card: #1a1a1d; --text: #f4f4f5; --muted: #a1a1aa; --accent: #ffd60a; --border: #2e2e33;
+          --ok: #4ade80; --bad: #f87171; --owner: #1d4ed8; --bubble: #27272a; }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, -apple-system, sans-serif; }
   main { max-width: 900px; margin: 0 auto; padding: 16px; }
   h1 { font-size: 24px; margin: 0 0 12px; }
-  .login { display: flex; gap: 8px; }
-  input { flex: 1; min-width: 0; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font: inherit; }
-  button { background: var(--accent); color: #111; border: 0; border-radius: 10px; padding: 8px 14px; font: inherit; font-weight: 700; cursor: pointer; }
+  h2 { font-size: 17px; margin: 18px 0 8px; }
+  .row { display: flex; gap: 8px; }
+  input, textarea { flex: 1; min-width: 0; width: 100%; background: var(--card); color: var(--text); border: 1px solid var(--border);
+          border-radius: 10px; padding: 10px 12px; font: inherit; }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  button { background: var(--accent); color: #111; border: 0; border-radius: 10px; padding: 9px 14px; font: inherit; font-weight: 700; cursor: pointer; }
+  button.ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  button.blue { background: var(--owner); color: #fff; }
+  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 4px 0 14px; }
+  .tabs button { background: var(--card); color: var(--muted); border: 1px solid var(--border); }
+  .tabs button[aria-selected="true"] { color: #111; background: var(--accent); }
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 14px 0; }
-  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+  .stat, .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
   .stat b { display: block; font-size: 22px; }
-  .stat span { color: var(--muted); font-size: 13px; }
-  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; margin-bottom: 8px; }
+  .stat span, .muted { color: var(--muted); font-size: 13px; }
+  .card { margin-bottom: 8px; }
   .top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
-  .muted { color: var(--muted); font-size: 13px; }
   .paid { background: var(--ok); }
-  .unpaid { background: transparent; color: var(--text); border: 1px solid var(--border); }
-  .err { color: #f87171; }
+  .err { color: var(--bad); }
+  .okmsg { color: var(--ok); }
+  .chat-item { cursor: pointer; }
+  .chat-item:hover { border-color: var(--accent); }
+  .pill { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; margin-left: 4px; }
+  .pill.human { background: var(--owner); color: #fff; }
+  .pill.order { background: var(--ok); color: #111; }
+  .transcript { display: flex; flex-direction: column; gap: 6px; max-height: 55vh; overflow-y: auto; padding: 10px;
+          background: var(--card); border: 1px solid var(--border); border-radius: 12px; margin: 10px 0; }
+  .msg { max-width: 85%; padding: 7px 11px; border-radius: 14px; white-space: pre-wrap; word-wrap: break-word; }
+  .msg small { display: block; font-size: 11px; opacity: .7; font-weight: 700; }
+  .msg.buyer { background: var(--accent); color: #111; align-self: flex-start; }
+  .msg.bot { background: var(--bubble); align-self: flex-end; }
+  .msg.owner { background: var(--owner); color: #fff; align-self: flex-end; }
+  .switch { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .switch b { font-size: 16px; }
+  .toggle { min-width: 92px; }
+  .toggle.on { background: var(--ok); }
+  .toggle.off { background: var(--bad); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 10px; }
+  @media (max-width: 480px) { .grid2 { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 <main>
-  <h1>Pre-orders</h1>
-  <form class="login" id="login">
+  <h1>Pre-order control panel</h1>
+  <form class="row" id="login">
     <input type="password" id="pw" placeholder="Admin password" aria-label="Admin password">
-    <button>Load</button>
+    <button>Unlock</button>
   </form>
   <p class="err" id="err"></p>
-  <div class="stats" id="stats"></div>
-  <div id="list"></div>
+
+  <div id="app" hidden>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="orders" aria-selected="true">📦 Orders</button>
+      <button role="tab" data-tab="chats" aria-selected="false">💬 Chats</button>
+      <button role="tab" data-tab="bots" aria-selected="false">⚙️ Bots & Shirt</button>
+    </div>
+
+    <section id="tab-orders">
+      <div class="stats" id="stats"></div>
+      <div id="list"></div>
+    </section>
+
+    <section id="tab-chats" hidden>
+      <div id="chat-list"></div>
+      <div id="chat-view" hidden>
+        <div class="top">
+          <button class="ghost" id="back">← All chats</button>
+          <button id="takeover">Take over</button>
+        </div>
+        <p class="muted" id="chat-status"></p>
+        <div class="transcript" id="transcript"></div>
+        <form class="row" id="reply-form">
+          <input id="reply" placeholder="Type to the buyer as yourself…" maxlength="1000" aria-label="Reply to buyer">
+          <button class="blue">Send</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="tab-bots" hidden>
+      <h2>Bots on the website</h2>
+      <div class="card switch"><div><b>💬 Shirt Helper</b><div class="muted">Answers questions</div></div>
+        <button class="toggle" id="sw-helper_on"></button></div>
+      <div class="card switch"><div><b>🛒 Order Taker</b><div class="muted">Takes pre-orders</div></div>
+        <button class="toggle" id="sw-order_on"></button></div>
+      <p class="muted">Instagram / TikTok / Facebook bots are switched on and off in the ManyChat app.</p>
+
+      <h2>Shirt info <span class="muted" id="edited-note"></span></h2>
+      <p class="muted">Both bots use this the moment you save.</p>
+      <form id="shirt-form">
+        <div class="grid2">
+          <div><label for="f-brand">Brand</label><input id="f-brand"></div>
+          <div><label for="f-shirt_name">Shirt name</label><input id="f-shirt_name"></div>
+        </div>
+        <label for="f-tagline">Tagline</label><input id="f-tagline">
+        <div class="grid2">
+          <div><label for="f-price">Price</label><input id="f-price" inputmode="decimal"></div>
+          <div><label for="f-currency">Currency symbol</label><input id="f-currency"></div>
+        </div>
+        <label for="f-sizes">Sizes (comma separated)</label><input id="f-sizes">
+        <label for="f-colors">Colors (comma separated)</label><input id="f-colors">
+        <label for="f-fit">Fit</label><input id="f-fit">
+        <label for="f-material">Material</label><input id="f-material">
+        <div class="grid2">
+          <div><label for="f-preorder_deadline">Pre-order closes</label><input id="f-preorder_deadline" type="date"></div>
+          <div><label for="f-ships_by">Ships by</label><input id="f-ships_by" type="date"></div>
+        </div>
+        <label for="f-shipping">Shipping</label><input id="f-shipping">
+        <div class="grid2">
+          <div><label for="f-cashapp">Cash App</label><input id="f-cashapp"></div>
+          <div><label for="f-venmo">Venmo</label><input id="f-venmo"></div>
+        </div>
+        <label for="f-paypal">PayPal</label><input id="f-paypal">
+        <label for="f-owner_contact">How buyers reach you</label><input id="f-owner_contact">
+        <p id="shirt-msg"></p>
+        <div class="row">
+          <button>Save shirt info</button>
+          <button type="button" class="ghost" id="reset-shirt">Reset to repo version</button>
+        </div>
+      </form>
+    </section>
+  </div>
 </main>
 <script>
 const $ = (id) => document.getElementById(id);
 let pw = "";
 try { pw = sessionStorage.getItem("admin_pw") || ""; } catch (e) {}
+let tab = "orders";
+let openChat = null;
+let chatTimer = null;
 
 async function api(path, opts = {}) {
-  const res = await fetch(path, { ...opts, headers: { "X-Admin-Password": pw } });
+  const headers = { "X-Admin-Password": pw };
+  if (opts.body) headers["Content-Type"] = "application/json";
+  const res = await fetch(path, { ...opts, headers });
   if (res.status === 401) throw new Error("Wrong password (or ADMIN_PASSWORD isn't set on the server).");
-  if (!res.ok) throw new Error("Server error " + res.status);
-  return res.json();
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Server error " + res.status);
+  return data;
+}
+const showErr = (e) => { $("err").textContent = e.message; };
+const ago = (t) => {
+  const s = Math.round(Date.now() / 1000 - t);
+  return s < 60 ? "just now" : s < 3600 ? Math.round(s / 60) + "m ago" : s < 86400 ? Math.round(s / 3600) + "h ago" : Math.round(s / 86400) + "d ago";
+};
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
 }
 
-function stat(label, value) {
-  const d = document.createElement("div"); d.className = "stat";
-  const b = document.createElement("b"); b.textContent = value;
-  const s = document.createElement("span"); s.textContent = label;
-  d.append(b, s); return d;
+// ---------- tabs ----------
+function showTab(name) {
+  tab = name;
+  document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+  ["orders", "chats", "bots"].forEach((t) => { $("tab-" + t).hidden = t !== name; });
+  refresh();
 }
+document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
 
-async function load() {
+function refresh() {
   $("err").textContent = "";
-  let orders;
-  try { orders = await api("/api/orders"); } catch (e) { $("err").textContent = e.message; return; }
-  try { sessionStorage.setItem("admin_pw", pw); } catch (e) {}
+  if (tab === "orders") loadOrders().catch(showErr);
+  if (tab === "chats") (openChat ? loadChat() : loadChats()).catch(showErr);
+  if (tab === "bots") loadBots().catch(showErr);
+}
 
+// ---------- orders ----------
+function stat(label, value) {
+  const d = el("div", "stat");
+  d.append(el("b", "", value), el("span", "", label));
+  return d;
+}
+
+async function loadOrders() {
+  const orders = await api("/api/orders");
   const shirts = orders.reduce((n, o) => n + Number(o.quantity), 0);
   const paidMoney = orders.filter((o) => o.paid === "yes").reduce((n, o) => n + Number(o.total), 0);
   const owed = orders.filter((o) => o.paid !== "yes").reduce((n, o) => n + Number(o.total), 0);
@@ -74,26 +201,147 @@ async function load() {
 
   const list = $("list"); list.innerHTML = "";
   orders.slice().reverse().forEach((o) => {
-    const c = document.createElement("div"); c.className = "card";
-    const top = document.createElement("div"); top.className = "top";
-    const title = document.createElement("div");
-    title.innerHTML = "<b></b> · <span></span>";
-    title.querySelector("b").textContent = `${o.order_id} — ${o.name}`;
-    title.querySelector("span").textContent = `${o.quantity}× ${o.size} ${o.color} · $${o.total}`;
-    const btn = document.createElement("button");
-    btn.className = o.paid === "yes" ? "paid" : "unpaid";
-    btn.textContent = o.paid === "yes" ? "✓ Paid" : "Mark paid";
-    btn.onclick = async () => { try { await api(`/api/orders/${encodeURIComponent(o.order_id)}/paid`, { method: "POST" }); load(); } catch (e) { $("err").textContent = e.message; } };
+    const c = el("div", "card");
+    const top = el("div", "top");
+    const title = el("div");
+    title.append(el("b", "", `${o.order_id} — ${o.name}`), document.createTextNode(` · ${o.quantity}× ${o.size} ${o.color} · $${o.total}`));
+    const btn = el("button", o.paid === "yes" ? "paid" : "ghost", o.paid === "yes" ? "✓ Paid" : "Mark paid");
+    btn.onclick = () => api(`/api/orders/${encodeURIComponent(o.order_id)}/paid`, { method: "POST" }).then(loadOrders).catch(showErr);
     top.append(title, btn);
-    const meta = document.createElement("div"); meta.className = "muted";
-    meta.textContent = `${o.contact} · ${o.payment_method} · ${o.delivery === "ship" ? "Ship: " + o.address : "Pickup"} · ${o.created_at}`;
-    c.append(top, meta); list.appendChild(c);
+    const meta = el("div", "muted",
+      `${o.contact} · ${o.payment_method} · ${o.delivery === "ship" ? "Ship: " + o.address : "Pickup"} · ${o.created_at}`);
+    c.append(top, meta);
+    list.appendChild(c);
   });
   if (!orders.length) list.textContent = "No orders yet.";
 }
 
-$("login").addEventListener("submit", (e) => { e.preventDefault(); pw = $("pw").value; load(); });
-if (pw) load();
+// ---------- chats ----------
+async function loadChats() {
+  const chats = await api("/api/admin/chats");
+  $("chat-view").hidden = true;
+  const list = $("chat-list"); list.hidden = false; list.innerHTML = "";
+  if (!chats.length) { list.textContent = "No website chats yet."; return; }
+  chats.forEach((c) => {
+    const card = el("div", "card chat-item");
+    const top = el("div", "top");
+    const name = el("b", "", "Buyer " + c.session_id.slice(0, 6));
+    if (c.human) name.append(el("span", "pill human", "YOU"));
+    if (c.orders.length) name.append(el("span", "pill order", "ORDERED"));
+    top.append(name, el("span", "muted", ago(c.updated)));
+    const who = c.last_role === "buyer" ? "Buyer: " : c.last_role === "owner" ? "You: " : "Bot: ";
+    card.append(top, el("div", "muted", who + c.last));
+    card.onclick = () => { openChat = c.session_id; loadChat().catch(showErr); };
+    list.appendChild(card);
+  });
+}
+
+async function loadChat() {
+  const c = await api(`/api/admin/chats/${encodeURIComponent(openChat)}`);
+  $("chat-list").hidden = true;
+  $("chat-view").hidden = false;
+  const t = $("transcript");
+  const atBottom = t.scrollHeight - t.scrollTop - t.clientHeight < 40;
+  t.innerHTML = "";
+  const names = { helper: "Shirt Helper", order: "Order Taker" };
+  c.log.forEach((m) => {
+    const d = el("div", "msg " + m.role);
+    d.append(el("small", "", m.role === "buyer" ? `Buyer → ${names[m.bot] || ""}` : m.role === "owner" ? "You" : names[m.bot]));
+    d.append(document.createTextNode(m.text));
+    t.appendChild(d);
+  });
+  if (atBottom || !t.dataset.seen) { t.scrollTop = t.scrollHeight; t.dataset.seen = "1"; }
+  $("takeover").textContent = c.human ? "🤖 Give back to bot" : "✋ Take over";
+  $("takeover").className = c.human ? "ghost" : "";
+  $("chat-status").textContent = (c.human ? "You have this chat. The bots are paused for this buyer." :
+    "The bots are answering. Take over (or just send a message) to chat as yourself.") +
+    (c.orders.length ? ` Orders: ${c.orders.join(", ")}` : "");
+}
+
+$("back").onclick = () => { openChat = null; $("transcript").dataset.seen = ""; loadChats().catch(showErr); };
+$("takeover").onclick = async () => {
+  try {
+    const c = await api(`/api/admin/chats/${encodeURIComponent(openChat)}`);
+    await api(`/api/admin/chats/${encodeURIComponent(openChat)}/takeover`, { method: "POST", body: JSON.stringify({ on: !c.human }) });
+    loadChat();
+  } catch (e) { showErr(e); }
+};
+$("reply-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const text = $("reply").value.trim();
+  if (!text) return;
+  try {
+    await api(`/api/admin/chats/${encodeURIComponent(openChat)}/reply`, { method: "POST", body: JSON.stringify({ text }) });
+    $("reply").value = "";
+    $("transcript").dataset.seen = "";
+    loadChat();
+  } catch (e2) { showErr(e2); }
+});
+
+// ---------- bots & shirt ----------
+const TEXT = ["brand", "shirt_name", "tagline", "currency", "fit", "material", "shipping", "owner_contact", "preorder_deadline", "ships_by"];
+
+function paintSwitch(key, on) {
+  const b = $("sw-" + key);
+  b.textContent = on ? "ON" : "OFF";
+  b.className = "toggle " + (on ? "on" : "off");
+  b.onclick = () => api("/api/admin/settings", { method: "POST", body: JSON.stringify({ [key]: !on }) })
+    .then((s) => paintSwitch(key, s[key])).catch(showErr);
+}
+
+function fillShirt(data) {
+  const s = data.shirt;
+  TEXT.forEach((k) => { $("f-" + k).value = s[k] || ""; });
+  $("f-price").value = s.price;
+  $("f-sizes").value = (s.sizes || []).join(", ");
+  $("f-colors").value = (s.colors || []).join(", ");
+  ["cashapp", "venmo", "paypal"].forEach((k) => { $("f-" + k).value = (s.payment || {})[k] || ""; });
+  $("edited-note").textContent = data.edited ? "(edited here)" : "(from shirt.json)";
+}
+
+async function loadBots() {
+  const [settings, shirt] = await Promise.all([api("/api/admin/settings"), api("/api/admin/shirt")]);
+  paintSwitch("helper_on", settings.helper_on);
+  paintSwitch("order_on", settings.order_on);
+  fillShirt(shirt);
+  $("shirt-msg").textContent = "";
+}
+
+$("shirt-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const body = {};
+  TEXT.forEach((k) => { body[k] = $("f-" + k).value; });
+  body.price = $("f-price").value;
+  body.sizes = $("f-sizes").value.split(",").map((x) => x.trim()).filter(Boolean);
+  body.colors = $("f-colors").value.split(",").map((x) => x.trim()).filter(Boolean);
+  body.payment = { cashapp: $("f-cashapp").value, venmo: $("f-venmo").value, paypal: $("f-paypal").value };
+  try {
+    fillShirt(await api("/api/admin/shirt", { method: "PUT", body: JSON.stringify(body) }));
+    $("shirt-msg").className = "okmsg"; $("shirt-msg").textContent = "✓ Saved. The bots are using it now.";
+  } catch (e2) {
+    $("shirt-msg").className = "err"; $("shirt-msg").textContent = e2.message;
+  }
+});
+$("reset-shirt").onclick = async () => {
+  if (!confirm("Throw away your edits and go back to shirt.json?")) return;
+  try { fillShirt(await api("/api/admin/shirt", { method: "DELETE" })); $("shirt-msg").textContent = "Reset."; }
+  catch (e) { showErr(e); }
+};
+
+// ---------- login ----------
+async function unlock() {
+  try {
+    await api("/api/admin/settings");
+  } catch (e) { showErr(e); return; }
+  try { sessionStorage.setItem("admin_pw", pw); } catch (e) {}
+  $("login").hidden = true;
+  $("app").hidden = false;
+  refresh();
+  clearInterval(chatTimer);
+  chatTimer = setInterval(() => { if (!document.hidden && tab === "chats") refresh(); }, 5000);
+}
+$("login").addEventListener("submit", (e) => { e.preventDefault(); pw = $("pw").value; unlock(); });
+if (pw) unlock();
 </script>
 </body>
 </html>

@@ -1,3 +1,6 @@
 orders.csv
-orders.tmp
+*.tmp
+settings.json
+shirt_live.json
+chats.jsonl
 __pycache__/
