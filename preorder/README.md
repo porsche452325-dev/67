@@ -10,6 +10,7 @@ What's in here:
 | `static/index.html` | The pre-order page buyers see (made for phones). |
 | `static/admin.html` | Your control panel at `/admin`: orders, bot on/off, shirt info, reading chats, and taking over a chat. |
 | `dm-scripts/` | Copy-paste scripts for the 2 bots on **Instagram, TikTok, Facebook, WhatsApp** (via ManyChat). |
+| `tiktok/week-1-drafts.md` | 7 ready-to-film TikToks for launch week. |
 | `GROWTH.md` | Which social media to use, a 2-week posting plan, and captions. |
 
 ## How it works
@@ -66,6 +67,7 @@ Follow `dm-scripts/instagram.md` first, then `tiktok.md`, `facebook.md`, and `wh
 | Tab | What you can do |
 |-----|-----------------|
 | 📦 **Orders** | See every order, the totals per size and color (so you know what to print), and who still owes money. Tap **Mark paid** when money lands. |
+| 🎵 **TikTok** | 2 TikTok bots (see below). |
 | 💬 **Chats** | Read every conversation buyers have had with the website bots. It updates live every few seconds. |
 | ⚙️ **Bots & Shirt** | Turn **Shirt Helper** or **Order Taker** ON or OFF. An off bot tells buyers how to reach you. Below that, edit the shirt info (price, sizes, dates, payment handles…) and tap **Save**. Both bots use the new info right away. |
 
@@ -73,6 +75,17 @@ Follow `dm-scripts/instagram.md` first, then `tiktok.md`, `facebook.md`, and `wh
 - The bots go quiet for that buyer only.
 - The buyer sees a blue "You're chatting with a real person" banner, and your messages appear on their screen within a few seconds.
 - Tap **🤖 Give back to bot** when you're done. The bot gets a summary of what you and the buyer said, so it won't contradict you (for example, a discount you gave).
+
+## Your 2 TikTok bots (`/admin` → 🎵 TikTok)
+
+| Bot | What it does |
+|-----|--------------|
+| 🎬 **Post Writer** | Pick a post type (teaser, reveal, fit check, countdown…) and add notes if you want. You get a ready-to-film TikTok: the hook, a shot list with timings, text on screen, sound idea, caption, hashtags and best time to post. It uses your real deadline and order count, and avoids repeating your last drafts. Tap **📋 Copy caption**, film it, post it, then tap **Mark posted**. |
+| 💬 **Comment Replier** | Paste TikTok comments or DMs (one per line). You get a reply for each to copy back. Anything tricky (complaints, refunds, order problems, collab offers) gets a **YOU CHECK** tag so you handle it yourself. |
+
+The bots write; **you post.** TikTok only lets approved business apps post for you, so you copy the caption, film the video and post in the TikTok app.
+Set **Your pre-order site link** in ⚙️ Bots so the bots point people to the right place.
+To get started straight away, `tiktok/week-1-drafts.md` has 7 launch-week TikToks already written.
 
 The Instagram, TikTok, Facebook and WhatsApp bots are controlled in the **ManyChat** app instead. Use its Live Chat to jump in there.
 

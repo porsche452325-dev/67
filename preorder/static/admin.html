@@ -15,13 +15,14 @@
   h1 { font-size: 24px; margin: 0 0 12px; }
   h2 { font-size: 17px; margin: 18px 0 8px; }
   .row { display: flex; gap: 8px; }
-  input, textarea { flex: 1; min-width: 0; width: 100%; background: var(--card); color: var(--text); border: 1px solid var(--border);
+  input, textarea, select { flex: 1; min-width: 0; width: 100%; background: var(--card); color: var(--text); border: 1px solid var(--border);
           border-radius: 10px; padding: 10px 12px; font: inherit; }
   label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
   button { background: var(--accent); color: #111; border: 0; border-radius: 10px; padding: 9px 14px; font: inherit; font-weight: 700; cursor: pointer; }
   button.ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
   button.blue { background: var(--owner); color: #fff; }
-  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 4px 0 14px; }
+  .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 4px 0 14px; }
+  .tabs button { padding: 9px 4px; font-size: 14px; }
   .tabs button { background: var(--card); color: var(--muted); border: 1px solid var(--border); }
   .tabs button[aria-selected="true"] { color: #111; background: var(--accent); }
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 14px 0; }
@@ -67,7 +68,8 @@
     <div class="tabs" role="tablist">
       <button role="tab" data-tab="orders" aria-selected="true">📦 Orders</button>
       <button role="tab" data-tab="chats" aria-selected="false">💬 Chats</button>
-      <button role="tab" data-tab="bots" aria-selected="false">⚙️ Bots & Shirt</button>
+      <button role="tab" data-tab="tiktok" aria-selected="false">🎵 TikTok</button>
+      <button role="tab" data-tab="bots" aria-selected="false">⚙️ Bots</button>
     </div>
 
     <section id="tab-orders">
@@ -89,6 +91,41 @@
           <button class="blue">Send</button>
         </form>
       </div>
+    </section>
+
+    <section id="tab-tiktok" hidden>
+      <div class="card">
+        <b>🎬 Post Writer</b>
+        <div class="muted">Drafts a TikTok you can film on your phone: hook, shots, text, caption, hashtags.</div>
+        <label for="tt-type">What kind of post?</label>
+        <select id="tt-type">
+          <option value="teaser">Teaser (build hype)</option>
+          <option value="reveal" selected>Full reveal</option>
+          <option value="behind_the_scenes">Behind the scenes</option>
+          <option value="fit_check">Fit check</option>
+          <option value="how_to_order">How to pre-order</option>
+          <option value="social_proof">Pre-order hype (real numbers)</option>
+          <option value="this_or_that">This or That</option>
+          <option value="day_in_life">Day in the life</option>
+          <option value="countdown">Countdown</option>
+          <option value="last_call">Last call</option>
+          <option value="custom">My own idea…</option>
+        </select>
+        <label for="tt-notes">Notes for the bot (optional)</label>
+        <input id="tt-notes" maxlength="500" placeholder="e.g. film at the skatepark, my friend Jay models it">
+        <p id="tt-msg"></p>
+        <button id="tt-draft">✍️ Draft a TikTok</button>
+      </div>
+      <div id="tt-drafts"></div>
+
+      <div class="card" style="margin-top:16px">
+        <b>💬 Comment Replier</b>
+        <div class="muted">Paste TikTok comments or DMs, one per line. Get a reply for each to copy back.</div>
+        <textarea id="tt-comments" rows="5" maxlength="6000" placeholder="how much is it?&#10;does it come in white&#10;fire 🔥🔥"></textarea>
+        <p id="tt-rmsg"></p>
+        <button id="tt-reply">💬 Write replies</button>
+      </div>
+      <div id="tt-replies"></div>
     </section>
 
     <section id="tab-bots" hidden>
@@ -126,6 +163,8 @@
         </div>
         <label for="f-paypal">PayPal</label><input id="f-paypal">
         <label for="f-owner_contact">How buyers reach you</label><input id="f-owner_contact">
+        <label for="f-site_url">Your pre-order site link (used by the TikTok bots)</label>
+        <input id="f-site_url" placeholder="https://your-shirt.onrender.com">
         <p id="shirt-msg"></p>
         <div class="row">
           <button>Save shirt info</button>
@@ -168,7 +207,7 @@ function el(tag, cls, text) {
 function showTab(name) {
   tab = name;
   document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
-  ["orders", "chats", "bots"].forEach((t) => { $("tab-" + t).hidden = t !== name; });
+  ["orders", "chats", "tiktok", "bots"].forEach((t) => { $("tab-" + t).hidden = t !== name; });
   refresh();
 }
 document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
@@ -178,6 +217,7 @@ function refresh() {
   if (tab === "orders") loadOrders().catch(showErr);
   if (tab === "chats") (openChat ? loadChat() : loadChats()).catch(showErr);
   if (tab === "bots") loadBots().catch(showErr);
+  if (tab === "tiktok") loadDrafts().catch(showErr);
 }
 
 // ---------- orders ----------
@@ -279,7 +319,7 @@ $("reply-form").addEventListener("submit", async (e) => {
 });
 
 // ---------- bots & shirt ----------
-const TEXT = ["brand", "shirt_name", "tagline", "currency", "fit", "material", "shipping", "owner_contact", "preorder_deadline", "ships_by"];
+const TEXT = ["brand", "shirt_name", "tagline", "currency", "fit", "material", "shipping", "owner_contact", "site_url", "preorder_deadline", "ships_by"];
 
 function paintSwitch(key, on) {
   const b = $("sw-" + key);
@@ -326,6 +366,89 @@ $("reset-shirt").onclick = async () => {
   if (!confirm("Throw away your edits and go back to shirt.json?")) return;
   try { fillShirt(await api("/api/admin/shirt", { method: "DELETE" })); $("shirt-msg").textContent = "Reset."; }
   catch (e) { showErr(e); }
+};
+
+// ---------- TikTok bots ----------
+async function copy(text, btn) {
+  try { await navigator.clipboard.writeText(text); }
+  catch (e) {
+    const t = document.createElement("textarea"); t.value = text; document.body.appendChild(t);
+    t.select(); document.execCommand("copy"); t.remove();
+  }
+  const old = btn.textContent; btn.textContent = "✓ Copied"; setTimeout(() => { btn.textContent = old; }, 1500);
+}
+function copyBtn(label, text) {
+  const b = el("button", "ghost", label);
+  b.type = "button"; b.onclick = () => copy(text, b);
+  return b;
+}
+
+function draftCard(d) {
+  const p = d.draft;
+  const c = el("div", "card");
+  const top = el("div", "top");
+  const title = el("b", "", p.title);
+  if (d.status === "posted") title.append(el("span", "pill order", "POSTED"));
+  top.append(title, el("span", "muted", ago(d.created)));
+  c.append(top);
+  const hook = el("p"); hook.append(el("b", "", "Hook: "), document.createTextNode(p.hook)); c.append(hook);
+  const shots = el("ol");
+  p.shots.forEach((s) => {
+    const li = el("li"); li.append(el("b", "", s.time + " "), document.createTextNode(s.film));
+    if (s.on_screen_text) li.append(el("div", "muted", "Text on screen: " + s.on_screen_text));
+    shots.append(li);
+  });
+  c.append(shots);
+  if (p.voiceover) { const v = el("p"); v.append(el("b", "", "Say: "), document.createTextNode(p.voiceover)); c.append(v); }
+  c.append(el("p", "muted", `🎵 Sound: ${p.sound} · ⏰ Post: ${p.post_time}`));
+  const fullCaption = `${p.caption} ${p.hashtags.map((h) => (h.startsWith("#") ? h : "#" + h)).join(" ")}`;
+  c.append(el("div", "transcript", fullCaption));
+  const row = el("div", "row");
+  const posted = el("button", d.status === "posted" ? "paid" : "ghost", d.status === "posted" ? "✓ Posted" : "Mark posted");
+  posted.onclick = () => api(`/api/admin/tiktok/drafts/${d.id}/posted`, { method: "POST" }).then(loadDrafts).catch(showErr);
+  const del = el("button", "ghost", "🗑");
+  del.setAttribute("aria-label", "Delete draft");
+  del.onclick = () => { if (confirm("Delete this draft?")) api(`/api/admin/tiktok/drafts/${d.id}`, { method: "DELETE" }).then(loadDrafts).catch(showErr); };
+  row.append(copyBtn("📋 Copy caption", fullCaption), posted, del);
+  c.append(row);
+  return c;
+}
+
+async function loadDrafts() {
+  const drafts = await api("/api/admin/tiktok/drafts");
+  const box = $("tt-drafts"); box.innerHTML = "";
+  if (drafts.length) box.append(el("h2", "", "Your drafts"));
+  drafts.forEach((d) => box.append(draftCard(d)));
+}
+
+$("tt-draft").onclick = async () => {
+  const btn = $("tt-draft"); btn.disabled = true; btn.textContent = "Writing… (about 20s)";
+  $("tt-msg").textContent = "";
+  try {
+    await api("/api/admin/tiktok/drafts", { method: "POST", body: JSON.stringify({ type: $("tt-type").value, notes: $("tt-notes").value }) });
+    $("tt-notes").value = "";
+    await loadDrafts();
+  } catch (e) { $("tt-msg").className = "err"; $("tt-msg").textContent = e.message; }
+  btn.disabled = false; btn.textContent = "✍️ Draft a TikTok";
+};
+
+$("tt-reply").onclick = async () => {
+  const btn = $("tt-reply"); btn.disabled = true; btn.textContent = "Writing…";
+  $("tt-rmsg").textContent = "";
+  const box = $("tt-replies"); box.innerHTML = "";
+  try {
+    const data = await api("/api/admin/tiktok/replies", { method: "POST", body: JSON.stringify({ comments: $("tt-comments").value }) });
+    data.replies.forEach((r) => {
+      const c = el("div", "card");
+      const who = el("div", "muted", "💬 " + r.comment);
+      if (r.needs_owner) who.append(el("span", "pill human", "YOU CHECK"));
+      c.append(who, el("p", "", r.reply));
+      if (r.needs_owner && r.why) c.append(el("p", "muted", "⚠️ " + r.why));
+      c.append(copyBtn("📋 Copy reply", r.reply));
+      box.append(c);
+    });
+  } catch (e) { $("tt-rmsg").className = "err"; $("tt-rmsg").textContent = e.message; }
+  btn.disabled = false; btn.textContent = "💬 Write replies";
 };
 
 // ---------- login ----------

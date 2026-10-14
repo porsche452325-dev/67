@@ -501,7 +501,8 @@ def api_set_settings():
 # ---------- admin: shirt info ----------
 
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-TEXT_FIELDS = ("brand", "shirt_name", "tagline", "currency", "fit", "material", "shipping", "owner_contact")
+TEXT_FIELDS = ("brand", "shirt_name", "tagline", "currency", "fit", "material", "shipping", "owner_contact",
+               "site_url")
 
 
 def clean_text(value, field: str, max_len: int = 300) -> str:
@@ -631,6 +632,218 @@ def api_owner_reply(session_id):
             abort(404)
         s["human"] = True  # typing to a buyer takes the chat over
     return jsonify({"seq": log_message(session_id, "owner", "owner", text)})
+
+
+# ---------- admin: TikTok bots ----------
+# Bot 3 "Post Writer" drafts TikToks; bot 4 "Comment Replier" drafts replies to comments/DMs.
+# They only write drafts - the owner posts them in the TikTok app.
+
+TIKTOK_DRAFTS_FILE = DATA_DIR / "tiktok_drafts.json"
+tiktok_lock = threading.Lock()
+
+POST_TYPES = {
+    "teaser": "Teaser: tease the shirt without fully showing it, build hype",
+    "reveal": "Full reveal of the shirt on a person",
+    "behind_the_scenes": "Behind the scenes: designing, printing, or packing the shirts",
+    "fit_check": "Fit check: different people wearing different sizes",
+    "how_to_order": "How to pre-order in 10 seconds",
+    "social_proof": "Hype from real pre-orders so far",
+    "this_or_that": "This or That: which color / how to style it",
+    "day_in_life": "Day in the life wearing the shirt",
+    "countdown": "Countdown: pre-order is closing soon",
+    "last_call": "Last call before pre-orders close",
+    "custom": "Owner's own idea (see notes)",
+}
+
+TIKTOK_POST_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "title": {"type": "string", "description": "Short internal name for this draft"},
+        "hook": {"type": "string", "description": "What happens/is said in the first 2 seconds"},
+        "shots": {"type": "array", "items": {
+            "type": "object",
+            "properties": {
+                "time": {"type": "string", "description": "e.g. 0-2s"},
+                "film": {"type": "string", "description": "What to film, simple enough to shoot on a phone"},
+                "on_screen_text": {"type": "string"},
+            },
+            "required": ["time", "film", "on_screen_text"],
+            "additionalProperties": False,
+        }},
+        "voiceover": {"type": "string", "description": "What to say, or empty if text-only"},
+        "sound": {"type": "string", "description": "Kind of sound/music to pick in TikTok"},
+        "caption": {"type": "string", "description": "TikTok caption without hashtags"},
+        "hashtags": {"type": "array", "items": {"type": "string"}},
+        "post_time": {"type": "string", "description": "Suggested time to post"},
+    },
+    "required": ["title", "hook", "shots", "voiceover", "sound", "caption", "hashtags", "post_time"],
+    "additionalProperties": False,
+}
+
+TIKTOK_REPLIES_SCHEMA = {
+    "type": "object",
+    "properties": {"replies": {"type": "array", "items": {
+        "type": "object",
+        "properties": {
+            "comment": {"type": "string"},
+            "reply": {"type": "string"},
+            "needs_owner": {"type": "boolean", "description": "True for complaints, refunds, collabs, or anything the facts don't cover"},
+            "why": {"type": "string", "description": "Short reason when needs_owner is true, else empty"},
+        },
+        "required": ["comment", "reply", "needs_owner", "why"],
+        "additionalProperties": False,
+    }}},
+    "required": ["replies"],
+    "additionalProperties": False,
+}
+
+
+class BotError(Exception):
+    pass
+
+
+def claude_json(system: str, prompt: str, schema: dict) -> dict:
+    """One structured Claude call for the TikTok bots."""
+    if client is None:
+        raise BotError("The bots aren't switched on yet (missing ANTHROPIC_API_KEY).")
+    try:
+        response = client.beta.messages.create(
+            model=MODEL,
+            max_tokens=8000,
+            system=system,
+            messages=[{"role": "user", "content": prompt}],
+            output_config={"effort": "medium", "format": {"type": "json_schema", "schema": schema}},
+            betas=["server-side-fallback-2026-07-01"],
+            fallbacks="default",
+        )
+    except anthropic.APIError as e:
+        app.logger.error("Claude API error: %s", e)
+        raise BotError("The AI service had a problem - try again in a minute.")
+    if response.stop_reason == "refusal":
+        raise BotError("The bot couldn't write that one - try different notes.")
+    if response.stop_reason == "max_tokens":
+        raise BotError("The draft came out too long - try again.")
+    text = next((b.text for b in response.content if b.type == "text"), "")
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        raise BotError("The bot's answer came back garbled - try again.")
+
+
+def site_link(shirt: dict) -> str:
+    return shirt.get("site_url") or request.host_url.rstrip("/")
+
+
+def tiktok_context(shirt: dict) -> str:
+    orders = read_orders()
+    shirts_sold = sum(int(o.get("quantity") or 0) for o in orders)
+    days_left = "unknown"
+    try:
+        deadline = datetime.strptime(shirt.get("preorder_deadline", ""), "%Y-%m-%d").date()
+        days_left = str((deadline - datetime.now(timezone.utc).date()).days)
+    except ValueError:
+        pass
+    return (f"{shirt_facts(shirt)}\n"
+            f"- Pre-order page link (goes in bio): {site_link(shirt)}\n"
+            f"- Days until pre-order closes: {days_left}\n"
+            f"- Real pre-orders so far: {len(orders)} orders, {shirts_sold} shirts")
+
+
+def load_tiktok_drafts() -> list[dict]:
+    if not TIKTOK_DRAFTS_FILE.exists():
+        return []
+    with open(TIKTOK_DRAFTS_FILE, encoding="utf-8") as f:
+        return json.load(f)
+
+
+@app.get("/api/admin/tiktok/drafts")
+def api_tiktok_drafts():
+    check_admin()
+    return jsonify(list(reversed(load_tiktok_drafts())))
+
+
+@app.post("/api/admin/tiktok/drafts")
+def api_tiktok_new_draft():
+    check_admin()
+    body = request.get_json(silent=True) or {}
+    post_type = body.get("type", "reveal")
+    if post_type not in POST_TYPES:
+        abort(400)
+    notes = str(body.get("notes", "")).strip()[:500]
+    shirt = load_shirt()
+    recent = [d["draft"]["title"] for d in load_tiktok_drafts()[-10:]]
+
+    system = f"""You are "Post Writer", a TikTok content bot for {shirt.get('brand')}, a small brand selling a shirt on pre-order.
+You write TikTok drafts the owner can film on a phone in under 15 minutes, with no editing skills.
+
+{tiktok_context(shirt)}
+
+Rules:
+- 7-20 second videos. The hook in the first 2 seconds decides everything - make it bold, specific, curiosity-driven.
+- Every video ends by telling viewers to comment "SHIRT" (a bot DMs them the link) or tap the link in bio.
+- Only use the facts above. Never invent discounts, restocks, celebrity mentions, or fake numbers. If you mention how many people pre-ordered, use the real count, and skip it when it's small.
+- Captions: short, casual, a little hype, under 150 characters, no hashtags in the caption itself.
+- 3-5 hashtags: a mix of broad (#streetwear, #ootd) and specific to this shirt/brand.
+- Don't reuse the same idea as these recent drafts: {', '.join(recent) or 'none yet'}."""
+    prompt = f"Draft one TikTok. Type: {POST_TYPES[post_type]}." + (f"\nOwner's notes: {notes}" if notes else "")
+    try:
+        draft = claude_json(system, prompt, TIKTOK_POST_SCHEMA)
+    except BotError as e:
+        return jsonify({"error": str(e)}), 502
+
+    entry = {"id": secrets.token_hex(4), "created": time.time(), "type": post_type,
+             "notes": notes, "status": "draft", "draft": draft}
+    with tiktok_lock:
+        drafts = load_tiktok_drafts()
+        drafts.append(entry)
+        write_json_atomic(TIKTOK_DRAFTS_FILE, drafts[-100:])
+    return jsonify(entry)
+
+
+@app.post("/api/admin/tiktok/drafts/<draft_id>/posted")
+def api_tiktok_toggle_posted(draft_id):
+    check_admin()
+    with tiktok_lock:
+        drafts = load_tiktok_drafts()
+        for d in drafts:
+            if d["id"] == draft_id:
+                d["status"] = "draft" if d["status"] == "posted" else "posted"
+                write_json_atomic(TIKTOK_DRAFTS_FILE, drafts)
+                return jsonify(d)
+    abort(404)
+
+
+@app.delete("/api/admin/tiktok/drafts/<draft_id>")
+def api_tiktok_delete_draft(draft_id):
+    check_admin()
+    with tiktok_lock:
+        drafts = [d for d in load_tiktok_drafts() if d["id"] != draft_id]
+        write_json_atomic(TIKTOK_DRAFTS_FILE, drafts)
+    return jsonify({"ok": True})
+
+
+@app.post("/api/admin/tiktok/replies")
+def api_tiktok_replies():
+    check_admin()
+    raw = str((request.get_json(silent=True) or {}).get("comments", ""))[:6000]
+    comments = [line.strip() for line in raw.splitlines() if line.strip()][:30]
+    if not comments:
+        return jsonify({"error": "Paste at least one comment or DM."}), 400
+    shirt = load_shirt()
+    system = f"""You are "Comment Replier", a bot that drafts replies to TikTok comments and DMs for {shirt.get('brand')}.
+
+{tiktok_context(shirt)}
+
+Rules:
+- One reply per comment, in the same order. Short (under 150 characters), casual, friendly, like a young brand owner texting. Light emoji OK.
+- Answer questions only from the facts above. Interested people: tell them to comment SHIRT or tap the link in bio.
+- Hate, trolling, or spam: a short, kind or funny reply - never argue.
+- Set needs_owner to true (and still draft a careful reply) for complaints, refunds, order problems, collab/business offers, or anything the facts don't answer."""
+    prompt = "Draft replies to these TikTok comments/DMs:\n" + "\n".join(f"{i + 1}. {c}" for i, c in enumerate(comments))
+    try:
+        return jsonify(claude_json(system, prompt, TIKTOK_REPLIES_SCHEMA))
+    except BotError as e:
+        return jsonify({"error": str(e)}), 502
 
 
 load_chat_log()
