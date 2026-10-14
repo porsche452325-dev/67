@@ -1,0 +1,20 @@
+# One-click setup for the shirt pre-order site on Render (render.com).
+# Render reads this file, builds the site from the preorder/ folder, and asks you
+# for the two secret values below. They are never stored in this repo.
+services:
+  - type: web
+    name: shirt-preorder
+    runtime: python
+    plan: free
+    branch: claude/shirt-preorder-bots
+    rootDir: preorder
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn server:app --workers 1 --threads 8 --bind 0.0.0.0:$PORT
+    healthCheckPath: /api/shirt
+    envVars:
+      - key: ANTHROPIC_API_KEY   # from console.anthropic.com -> API Keys
+        sync: false
+      - key: ADMIN_PASSWORD      # the password you'll type on /admin
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.12.7

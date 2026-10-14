@@ -37,16 +37,17 @@ Go to **console.anthropic.com**, sign up, add a little credit, then **API Keys �
 Never paste the key into chat or into any file in this repo. It only goes in the hosting settings (step 3).
 
 ### 3. Put the site online (free on Render)
-1. Go to **render.com** and sign in with GitHub.
-2. **New → Web Service**, then pick this repo.
-3. Settings:
-   - Root directory: `preorder`
-   - Build command: `pip install -r requirements.txt`
-   - Start command: `gunicorn server:app --workers 1 --threads 8`
-4. **Environment variables:**
-   - `ANTHROPIC_API_KEY` = your key from step 2
-   - `ADMIN_PASSWORD` = a password only you know
-5. Deploy. You'll get a link like `https://your-shirt.onrender.com`.
+The repo includes a `render.yaml` setup file, so Render fills in all the settings for you.
+1. Go to **render.com** and sign up / log in **with GitHub**. Let Render see the `67` repo.
+2. Click **New → Blueprint**, pick the `67` repo, and choose the branch `claude/shirt-preorder-bots` (if it asks).
+3. Render asks for 2 values:
+   - `ANTHROPIC_API_KEY`: your key from step 2.
+   - `ADMIN_PASSWORD`: make up a password only you know.
+4. Click **Apply**. After 2-3 minutes you get your link, like `https://shirt-preorder.onrender.com`.
+   - Buyers go to that link.
+   - You go to that link + `/admin` and type your password.
+
+The free plan "sleeps" after 15 minutes with no visitors. The first visit after that takes about 30 seconds to load, then it's fast.
 
 > **Keep your data safe:** on a free Render plan, everything the site saves gets wiped whenever it restarts. That means orders, chat history, the bot on/off switches, and shirt edits made in `/admin`.
 > - **Paid option:** add a Render **Disk** (a paid add-on) mounted at `/data`, and set the env variable `DATA_DIR=/data`.
