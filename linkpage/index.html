@@ -1,0 +1,155 @@
+<title>Version Zero</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one phone-width column on a camo-lit black ground; brand look is dark-only by design */
+:root {
+  color-scheme: dark;
+  --ink: #0d0e0b;          /* near-black, biased toward olive */
+  --panel: #15170f;
+  --line: #2a2d20;
+  --cream: #ede6d6;        /* logo cream */
+  --cream-dim: #a9a393;
+  --camo: #b2c478;         /* camo-green accent from the tee */
+  --olive: #3f4a2a;
+  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+html { background: var(--ink); }
+body {
+  background: var(--ink);
+  color: var(--cream);
+  font-family: var(--font-display);
+  font-size: 16px;
+  line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 40px;
+  min-height: 100%;
+  position: relative;
+  overflow-x: hidden;
+}
+/* atmosphere: camo fading up from the bottom + a soft spotlight */
+.ground {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(60% 45% at 50% 100%, rgba(178,196,120,.18), rgba(178,196,120,0) 70%),
+    url("img/camo.jpg") center bottom / cover no-repeat;
+  opacity: .5;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 25%, #000 95%);
+          mask-image: linear-gradient(to bottom, transparent 25%, #000 95%);
+}
+.page { position: relative; z-index: 1; max-width: 460px; margin: 0 auto; display: grid; gap: 28px; }
+
+.meta {
+  display: flex; justify-content: space-between;
+  font: 500 11px/1 var(--font-mono); letter-spacing: .18em; text-transform: uppercase; color: var(--cream-dim);
+}
+
+.profile { display: grid; justify-items: center; gap: 14px; text-align: center; padding-top: 6px; }
+.avatar {
+  width: 104px; height: 104px; border-radius: 50%; display: block;
+  box-shadow: 0 0 0 1px var(--line), 0 0 0 6px var(--ink), 0 0 0 7px rgba(178,196,120,.35);
+}
+.wordmark { width: min(250px, 70%); height: auto; display: block; margin: 6px auto 0; }
+.wordmark-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.bio { margin: 0; font-size: 17px; font-weight: 500; font-variation-settings: "wdth" 100; text-wrap: balance; color: var(--cream); }
+.place { font: 500 11px/1 var(--font-mono); letter-spacing: .2em; text-transform: uppercase; color: var(--camo); }
+
+.links { display: grid; gap: 12px; }
+.link {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 60px; padding: 0 20px; border-radius: 14px;
+  text-decoration: none; font-weight: 700; font-size: 16px; font-variation-settings: "wdth" 112;
+  letter-spacing: .01em;
+  transition: transform .18s ease, background-color .18s ease, border-color .18s ease;
+}
+.link .arrow { font: 500 15px/1 var(--font-mono); }
+.link-primary { background: var(--camo); color: var(--ink); }
+.link-primary:hover { background: #c3d48a; transform: translateY(-2px); }
+.link-cream { background: var(--cream); color: var(--ink); }
+.link-cream:hover { background: #f6f0e3; transform: translateY(-2px); }
+.link-soon {
+  background: transparent; color: var(--cream-dim); border: 1px dashed var(--line); cursor: default;
+}
+.chip {
+  font: 500 10px/1 var(--font-mono); letter-spacing: .16em; text-transform: uppercase;
+  padding: 7px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--cream-dim);
+}
+.link:focus-visible { outline: 2px solid var(--cream); outline-offset: 3px; }
+
+/* Drop 001 feature */
+.drop {
+  position: relative; overflow: hidden; border-radius: 20px; border: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, rgba(13,14,11,.55), rgba(13,14,11,.92) 78%),
+    url("img/camo.jpg") center / cover;
+  display: grid; grid-template-columns: 1fr; text-decoration: none; color: inherit;
+}
+.drop-head { display: flex; justify-content: space-between; align-items: center; padding: 18px 20px 0; }
+.eyebrow { font: 500 11px/1 var(--font-mono); letter-spacing: .22em; text-transform: uppercase; color: var(--camo); }
+.tee-wrap { position: relative; display: grid; place-items: center; padding: 8px 24px 0; }
+.tee-wrap::before {
+  content: ""; position: absolute; width: 78%; aspect-ratio: 1; border-radius: 50%; top: 18%;
+  background: radial-gradient(closest-side, rgba(178,196,120,.35), rgba(178,196,120,0));
+}
+.tee { position: relative; width: min(300px, 78%); max-width: 100%; height: auto; transform: rotate(-4deg);
+  filter: drop-shadow(0 26px 28px rgba(0,0,0,.6)); animation: float 6s ease-in-out infinite; }
+@keyframes float { 0%,100% { translate: 0 0; } 50% { translate: 0 -8px; } }
+.drop-body { padding: 6px 20px 20px; display: grid; gap: 6px; }
+.drop-title { margin: 0; font-size: 22px; font-weight: 800; font-variation-settings: "wdth" 118; text-wrap: balance; }
+.drop-note { margin: 0; font-size: 14px; color: var(--cream-dim); }
+.drop:hover .tee { animation-play-state: paused; }
+.drop:focus-visible { outline: 2px solid var(--cream); outline-offset: 3px; }
+
+.foot { display: grid; justify-items: center; gap: 8px; text-align: center; padding-top: 4px; }
+.motto { font-size: 15px; font-weight: 600; font-variation-settings: "wdth" 110; }
+.small { font: 400 11px/1.4 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--cream-dim); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tee { animation: none; }
+  .link { transition: none; }
+  .link:hover { transform: none; }
+}
+</style>
+
+<div class="ground" aria-hidden="true"></div>
+
+<main class="page">
+  <div class="meta"><span>V/0</span><span>Bangkok · 2026</span></div>
+
+  <header class="profile">
+    <img class="avatar" src="img/avatar.jpg" alt="Version Zero emblem" width="104" height="104">
+    <h1 style="margin:0"><img class="wordmark" src="img/wordmark.webp" alt="" width="560" height="330"><span class="wordmark-text">Version Zero</span></h1>
+    <p class="bio">Start from zero. Build your own version.</p>
+    <span class="place">Clothing brand · Bangkok</span>
+  </header>
+
+  <nav class="links" aria-label="Version Zero links">
+    <a class="link link-primary" href="https://instagram.com/versionzero.official" target="_blank" rel="noopener">
+      <span>Follow @versionzero.official</span><span class="arrow" aria-hidden="true">→</span>
+    </a>
+    <a class="link link-cream" href="https://ig.me/m/versionzero.official" target="_blank" rel="noopener">
+      <span>Collabs &amp; orders · Send a DM</span><span class="arrow" aria-hidden="true">→</span>
+    </a>
+    <div class="link link-soon" aria-disabled="true">
+      <span>Shop</span><span class="chip">Opening soon</span>
+    </div>
+  </nav>
+
+  <a class="drop" href="https://instagram.com/versionzero.official" target="_blank" rel="noopener" aria-label="Drop 001, the green camo tee. Follow on Instagram for first access">
+    <div class="drop-head"><span class="eyebrow">Drop 001</span><span class="chip">Coming soon</span></div>
+    <div class="tee-wrap"><img class="tee" src="img/tee.webp" alt="Version Zero green camo raglan tee with cross graphic" width="640" height="817"></div>
+    <div class="drop-body">
+      <p class="drop-title">The green camo tee</p>
+      <p class="drop-note">Designed in Bangkok. Follow on Instagram to get first access when it drops.</p>
+    </div>
+  </a>
+
+  <footer class="foot">
+    <span class="motto">Worn by design.</span>
+    <span class="small">© 2026 Version Zero</span>
+  </footer>
+</main>
