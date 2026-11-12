@@ -2,38 +2,43 @@
 """
 Gold Signal Bot
 ===============
-Watches a live gold (XAU/USD) chart and tells you when to BUY, SELL or CLOSE.
+Watches a live gold (XAU/USD) chart and tells you exactly when to BUY, when to
+CLOSE, and when to DO NOTHING. It does NOT place trades; you decide.
 
-It does NOT place trades. It only prints signals so YOU decide.
+Strategy: 4-hour breakout trend-following, chosen by backtesting over 100 variations on
+9 years of real XAUUSD data (see research/RESULTS.md):
+  * BUY      : a 4-hour candle closes above the highest high of the previous
+               55 candles, while price is above the 200 EMA (uptrend).
+               Enter at the next candle's open.
+  * Stop     : starts 2 x ATR(14) below entry, then trails: highest high since
+               entry minus 3 x ATR (ATR fixed at entry). It only ever moves up.
+  * CLOSE    : when price touches the stop. No fixed take profit, so winners run.
+  * NO SELLS : every short-selling rule tested lost money on gold.
+  * Otherwise: DO NOTHING.
 
-Strategy (trend-following, uses closed candles only so signals never "repaint"):
-  * Trend filter  : price vs. EMA-200 (above = only look for buys, below = only sells)
-  * Entry trigger : EMA-9 crosses EMA-21
-  * Momentum check: RSI-14 must agree (buy: 50-70, sell: 30-50)
-  * Risk          : Stop loss = 1.5 x ATR-14, Take profit = 3 x ATR-14 (1:2 risk/reward)
-  * Exit (CLOSE)  : stop loss hit, take profit hit, or EMA-9/21 crosses back the other way
+Backtest 2017-04 .. 2026-08 (Exness XAUUSD, $0.35 cost/trade): 169 trades,
+46% wins, avg win $45/oz vs avg loss $19/oz, profit factor 2.09,
+9 of 10 years profitable. Past results do not guarantee future results.
 
 Data sources (no API key needed):
-  * binance : PAXG/USDT - a gold-backed token that tracks 1 oz of gold, trades 24/7, real time
+  * binance : PAXG/USDT, a gold-backed token (1 token = 1 oz), real time, 24/7
   * yahoo   : GC=F gold futures (may be delayed ~10 min, closed on weekends)
 
 Usage:
-  python gold_bot.py                      # live, 15-minute chart, checks every 5s
-  python gold_bot.py --interval 1h        # live on the 1-hour chart
-  python gold_bot.py --source yahoo       # use Yahoo gold futures instead
-  python gold_bot.py --backtest           # see how the strategy did on recent candles
-  python gold_bot.py --demo               # offline test with fake prices
+  python gold_bot.py                    # live, 4-hour signals, checks every 5s
+  python gold_bot.py --backtest         # test on the last ~1000 4-hour candles
+  python gold_bot.py --csv XAUUSD.csv   # test on your own MT5 history export
+  python gold_bot.py --demo             # offline test with fake prices
 
 Optional phone alerts via Telegram: set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID.
-
 Only uses the Python standard library - nothing to install.
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import json
-import math
 import os
 import random
 import sys
@@ -45,22 +50,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # ----------------------------------------------------------------------------
-# Settings (change these to tune the strategy)
+# Settings (these are the tested values; changing them voids the backtest)
 # ----------------------------------------------------------------------------
-EMA_FAST = 9
-EMA_SLOW = 21
+BREAKOUT_N = 55     # candles in the breakout window
 EMA_TREND = 200
-RSI_LEN = 14
 ATR_LEN = 14
-SL_ATR = 1.5    # stop loss distance in ATRs
-TP_ATR = 3.0    # take profit distance in ATRs
-RSI_BUY_MIN, RSI_BUY_MAX = 50, 70
-RSI_SELL_MIN, RSI_SELL_MAX = 30, 50
+SL_ATR = 2.0        # first stop distance in ATRs
+TRAIL_ATR = 3.0     # trailing distance in ATRs
+COST = 0.35         # $/oz spread + slippage, used in backtests
 
 STATE_FILE = Path(__file__).with_name("bot_state.json")
 LOG_FILE = Path(__file__).with_name("signals_log.csv")
-
-INTERVALS = {"1m": 60, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600, "4h": 14400, "1d": 86400}
+INTERVALS = {"15m": 900, "1h": 3600, "4h": 14400, "1d": 86400}
 
 
 @dataclass
@@ -76,45 +77,89 @@ class Candle:
 # Data
 # ----------------------------------------------------------------------------
 def _get_json(url: str) -> object:
-    req = urllib.request.Request(url, headers={"User-Agent": "gold-signal-bot/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "gold-signal-bot/2.0"})
     with urllib.request.urlopen(req, timeout=15) as resp:
         return json.loads(resp.read().decode())
 
 
-def fetch_binance(interval: str, limit: int = 500) -> list[Candle]:
+def fetch_binance(interval: str, limit: int = 1000) -> list[Candle]:
     q = urllib.parse.urlencode({"symbol": "PAXGUSDT", "interval": interval, "limit": limit})
-    rows = _get_json(f"https://api.binance.com/api/v3/klines?{q}")
-    return [Candle(int(r[0]) // 1000, float(r[1]), float(r[2]), float(r[3]), float(r[4])) for r in rows]
+    last = None
+    for host in ("https://data-api.binance.vision", "https://api.binance.com"):
+        try:
+            rows = _get_json(f"{host}/api/v3/klines?{q}")
+            return [Candle(int(r[0]) // 1000, float(r[1]), float(r[2]), float(r[3]), float(r[4])) for r in rows]
+        except Exception as e:  # try the next host
+            last = e
+    raise last
 
 
-def fetch_yahoo(interval: str, limit: int = 500) -> list[Candle]:
-    yi = {"4h": "1h"}.get(interval, interval).replace("1h", "60m")
-    rng = {"1m": "5d", "5m": "30d", "15m": "30d", "30m": "30d", "60m": "180d", "1d": "5y"}[yi]
+def resample(candles: list[Candle], seconds: int) -> list[Candle]:
+    """Group candles into UTC-aligned buckets (e.g. 4h = 00:00, 04:00, ...)."""
+    out: list[Candle] = []
+    for c in candles:
+        b = c.time - c.time % seconds
+        if out and out[-1].time == b:
+            o = out[-1]
+            o.high, o.low, o.close = max(o.high, c.high), min(o.low, c.low), c.close
+        else:
+            out.append(Candle(b, c.open, c.high, c.low, c.close))
+    return out
+
+
+def fetch_yahoo(interval: str, limit: int = 1000) -> list[Candle]:
+    yi = {"15m": "15m", "1h": "60m", "4h": "60m", "1d": "1d"}[interval]
+    rng = {"15m": "30d", "60m": "730d", "1d": "10y"}[yi]
     q = urllib.parse.urlencode({"interval": yi, "range": rng})
     data = _get_json(f"https://query1.finance.yahoo.com/v8/finance/chart/GC=F?{q}")
     res = data["chart"]["result"][0]
     quote = res["indicators"]["quote"][0]
-    candles = []
-    for i, t in enumerate(res["timestamp"]):
-        o, h, l, c = quote["open"][i], quote["high"][i], quote["low"][i], quote["close"][i]
-        if None not in (o, h, l, c):
-            candles.append(Candle(int(t), o, h, l, c))
+    candles = [Candle(int(t), o, h, l, c) for t, o, h, l, c in
+               zip(res["timestamp"], quote["open"], quote["high"], quote["low"], quote["close"])
+               if None not in (o, h, l, c)]
+    if interval == "4h":
+        candles = resample(candles, 14400)
     return candles[-limit:]
 
 
-def fake_candles(n: int = 600, step: int = 900, seed: int = 7) -> list[Candle]:
-    """Random-walk gold prices with trending phases, for offline testing."""
+def load_csv(path: str) -> list[Candle]:
+    """Read an MT5 'Export bars' file (or any CSV with date/time/open/high/low/close)
+    and turn it into 4-hour candles."""
+    rows = []
+    with open(path, newline="") as f:
+        sample = f.read(4096); f.seek(0)
+        dialect = csv.Sniffer().sniff(sample, delimiters=",\t;")
+        rd = csv.reader(f, dialect)
+        header = [h.strip("<>").lower() for h in next(rd)]
+        col = {name: header.index(name) for name in header}
+        for r in rd:
+            if not r:
+                continue
+            if "date" in col and "time" in col:
+                stamp = f"{r[col['date']]} {r[col['time']]}"
+            else:
+                stamp = r[col.get("date", col.get("time", 0))]
+            stamp = stamp.replace(".", "-").replace("T", " ")[:19]
+            fmt = "%Y-%m-%d %H:%M:%S" if stamp.count(":") == 2 else "%Y-%m-%d %H:%M" if ":" in stamp else "%Y-%m-%d"
+            t = int(datetime.strptime(stamp, fmt).replace(tzinfo=timezone.utc).timestamp())
+            rows.append(Candle(t, float(r[col["open"]]), float(r[col["high"]]), float(r[col["low"]]), float(r[col["close"]])))
+    rows.sort(key=lambda c: c.time)
+    return resample(rows, 14400)
+
+
+def fake_candles(n: int = 1500, step: int = 14400, seed: int = 7) -> list[Candle]:
+    """Random-walk prices with trending phases, for offline testing only."""
     rnd = random.Random(seed)
     price, drift = 2650.0, 0.0
     t0 = int(time.time()) - n * step
     out = []
     for i in range(n):
-        if i % 80 == 0:
-            drift = rnd.choice([-0.6, -0.3, 0.3, 0.6])
+        if i % 120 == 0:
+            drift = rnd.choice([-2.0, -1.0, 1.0, 2.0, 3.0])
         o = price
-        c = max(100.0, o + drift + rnd.gauss(0, 3))
-        h = max(o, c) + abs(rnd.gauss(0, 1.5))
-        l = min(o, c) - abs(rnd.gauss(0, 1.5))
+        c = max(100.0, o + drift + rnd.gauss(0, 12))
+        h = max(o, c) + abs(rnd.gauss(0, 6))
+        l = min(o, c) - abs(rnd.gauss(0, 6))
         out.append(Candle(t0 + i * step, o, h, l, c))
         price = c
     return out
@@ -132,33 +177,22 @@ def ema(values: list[float], length: int) -> list[float]:
     return out
 
 
-def rsi(values: list[float], length: int) -> list[float]:
-    out = [50.0] * len(values)
-    gain = loss = 0.0
-    for i in range(1, len(values)):
-        ch = values[i] - values[i - 1]
-        g, l = max(ch, 0.0), max(-ch, 0.0)
-        if i <= length:
-            gain += g / length
-            loss += l / length
-        else:
-            gain = (gain * (length - 1) + g) / length
-            loss = (loss * (length - 1) + l) / length
-        if i >= length:
-            out[i] = 100.0 if loss == 0 else 100 - 100 / (1 + gain / loss)
-    return out
-
-
 def atr(candles: list[Candle], length: int) -> list[float]:
-    trs = []
+    out, prev = [], None
     for i, c in enumerate(candles):
         pc = candles[i - 1].close if i else c.close
-        trs.append(max(c.high - c.low, abs(c.high - pc), abs(c.low - pc)))
-    out, prev = [], None
-    for i, tr in enumerate(trs):
+        tr = max(c.high - c.low, abs(c.high - pc), abs(c.low - pc))
         prev = tr if prev is None else (prev * (length - 1) + tr) / length
         out.append(prev)
     return out
+
+
+def indicators(candles: list[Candle]) -> dict:
+    highs = [c.high for c in candles]
+    hh = [float("nan")] * len(candles)
+    for i in range(BREAKOUT_N, len(candles)):
+        hh[i] = max(highs[i - BREAKOUT_N:i])
+    return {"trend": ema([c.close for c in candles], EMA_TREND), "atr": atr(candles, ATR_LEN), "hh": hh}
 
 
 # ----------------------------------------------------------------------------
@@ -166,92 +200,57 @@ def atr(candles: list[Candle], length: int) -> list[float]:
 # ----------------------------------------------------------------------------
 @dataclass
 class Position:
-    side: str          # "LONG" or "SHORT"
     entry: float
     stop: float
-    target: float
-    opened: int
+    atr: float
+    best: float
+    opened: int         # time of the entry candle
+    first_bar: int      # time of the first candle the trade is managed on
 
 
 @dataclass
 class Signal:
-    action: str        # BUY, SELL, CLOSE, HOLD
+    action: str        # BUY, CLOSE
     price: float
     time: int
     reason: str
     stop: float | None = None
-    target: float | None = None
     pnl: float | None = None
+    opened: int | None = None   # for CLOSE: which trade it closes
 
 
 class Strategy:
     def __init__(self) -> None:
         self.position: Position | None = None
 
-    def evaluate(self, candles: list[Candle], i: int, ind: dict) -> Signal | None:
-        """Look at closed candle i and decide what to do."""
-        c = candles[i]
-        f, s, tr = ind["fast"], ind["slow"], ind["trend"]
-        r, a = ind["rsi"][i], ind["atr"][i]
-        cross_up = f[i - 1] <= s[i - 1] and f[i] > s[i]
-        cross_dn = f[i - 1] >= s[i - 1] and f[i] < s[i]
-
-        # --- manage an open trade first ---
+    def step(self, candles: list[Candle], i: int, ind: dict, next_open: float | None) -> list[Signal]:
+        """Process closed candle i. next_open is the open of candle i+1 (the entry price)."""
+        c, out = candles[i], []
         p = self.position
-        if p:
-            if p.side == "LONG":
-                if c.low <= p.stop:
-                    return self._close(p.stop, c.time, "Stop loss hit")
-                if c.high >= p.target:
-                    return self._close(p.target, c.time, "Take profit hit")
-                if cross_dn:
-                    return self._close(c.close, c.time, "Trend turned down (EMA cross)")
+        if p and c.time >= p.first_bar:
+            if c.low <= p.stop:
+                px = min(c.open, p.stop)
+                why = "Trailing stop hit, profit locked in" if px >= p.entry else "Stop loss hit"
+                out.append(Signal("CLOSE", px, c.time, why, pnl=px - p.entry, opened=p.opened))
+                self.position = None
             else:
-                if c.high >= p.stop:
-                    return self._close(p.stop, c.time, "Stop loss hit")
-                if c.low <= p.target:
-                    return self._close(p.target, c.time, "Take profit hit")
-                if cross_up:
-                    return self._close(c.close, c.time, "Trend turned up (EMA cross)")
-            return None
-
-        # --- look for a new trade ---
-        if cross_up and c.close > tr[i] and RSI_BUY_MIN <= r <= RSI_BUY_MAX:
-            sl, tp = c.close - SL_ATR * a, c.close + TP_ATR * a
-            self.position = Position("LONG", c.close, sl, tp, c.time)
-            return Signal("BUY", c.close, c.time,
-                          f"Uptrend (above EMA{EMA_TREND}), EMA{EMA_FAST} crossed above EMA{EMA_SLOW}, RSI {r:.0f}",
-                          sl, tp)
-        if cross_dn and c.close < tr[i] and RSI_SELL_MIN <= r <= RSI_SELL_MAX:
-            sl, tp = c.close + SL_ATR * a, c.close - TP_ATR * a
-            self.position = Position("SHORT", c.close, sl, tp, c.time)
-            return Signal("SELL", c.close, c.time,
-                          f"Downtrend (below EMA{EMA_TREND}), EMA{EMA_FAST} crossed below EMA{EMA_SLOW}, RSI {r:.0f}",
-                          sl, tp)
-        return None
-
-    def _close(self, price: float, t: int, reason: str) -> Signal:
-        p = self.position
-        pnl = (price - p.entry) if p.side == "LONG" else (p.entry - price)
-        self.position = None
-        return Signal("CLOSE", price, t, f"Close {p.side}: {reason}", pnl=pnl)
-
-
-def indicators(candles: list[Candle]) -> dict:
-    closes = [c.close for c in candles]
-    return {
-        "fast": ema(closes, EMA_FAST),
-        "slow": ema(closes, EMA_SLOW),
-        "trend": ema(closes, EMA_TREND),
-        "rsi": rsi(closes, RSI_LEN),
-        "atr": atr(candles, ATR_LEN),
-    }
+                p.best = max(p.best, c.high)
+                p.stop = max(p.stop, p.best - TRAIL_ATR * p.atr)
+        hh, tr, a = ind["hh"][i], ind["trend"][i], ind["atr"][i]
+        if self.position is None and i >= EMA_TREND and c.close > hh and c.close > tr:
+            entry = next_open if next_open is not None else c.close
+            step = candles[1].time - candles[0].time
+            self.position = Position(entry, entry - SL_ATR * a, a, entry, c.time + step, c.time + step)
+            out.append(Signal("BUY", entry, c.time,
+                              f"4-hour candle closed at {c.close:,.2f}, above the {BREAKOUT_N}-candle high "
+                              f"{hh:,.2f}, in an uptrend", stop=self.position.stop))
+        return out
 
 
 # ----------------------------------------------------------------------------
 # Alerts / output
 # ----------------------------------------------------------------------------
-COLORS = {"BUY": "\033[92m", "SELL": "\033[91m", "CLOSE": "\033[93m"}
+COLORS = {"BUY": "\033[92m", "CLOSE": "\033[93m", "WAIT": "\033[90m"}
 RESET = "\033[0m"
 
 
@@ -262,7 +261,7 @@ def ts(t: int) -> str:
 def format_signal(sig: Signal) -> str:
     lines = [f"{sig.action} GOLD @ {sig.price:,.2f}   ({ts(sig.time)})", f"Why: {sig.reason}"]
     if sig.stop is not None:
-        lines.append(f"Stop loss: {sig.stop:,.2f}   Take profit: {sig.target:,.2f}")
+        lines.append(f"Stop loss: {sig.stop:,.2f}   (no take profit - the stop trails up)")
     if sig.pnl is not None:
         lines.append(f"Result: {sig.pnl:+,.2f} $/oz")
     return "\n".join(lines)
@@ -281,47 +280,64 @@ def send_telegram(text: str) -> None:
 
 def alert(sig: Signal) -> None:
     msg = format_signal(sig)
-    color = COLORS.get(sig.action, "")
     bar = "=" * 60
-    print(f"\a\n{color}{bar}\n{msg}\n{bar}{RESET}\n", flush=True)
+    print(f"\a\n{COLORS.get(sig.action, '')}{bar}\n{msg}\n{bar}{RESET}\n", flush=True)
     send_telegram("🟡 Gold bot\n" + msg)
     new = not LOG_FILE.exists()
     with LOG_FILE.open("a") as f:
         if new:
-            f.write("time,action,price,stop,target,pnl,reason\n")
+            f.write("time,action,price,stop,pnl,reason\n")
         stop = "" if sig.stop is None else f"{sig.stop:.2f}"
-        target = "" if sig.target is None else f"{sig.target:.2f}"
-        f.write(f"{ts(sig.time)},{sig.action},{sig.price:.2f},{stop},{target},{'' if sig.pnl is None else round(sig.pnl, 2)},\"{sig.reason}\"\n")
+        pnl = "" if sig.pnl is None else f"{sig.pnl:.2f}"
+        f.write(f"{ts(sig.time)},{sig.action},{sig.price:.2f},{stop},{pnl},\"{sig.reason}\"\n")
 
 
 # ----------------------------------------------------------------------------
 # Modes
 # ----------------------------------------------------------------------------
-def backtest(candles: list[Candle]) -> None:
+def backtest(candles: list[Candle], quiet: bool = False) -> None:
     ind = indicators(candles)
     strat = Strategy()
-    trades: list[float] = []
-    print(f"Backtest on {len(candles)} candles: {ts(candles[0].time)} -> {ts(candles[-1].time)}\n")
-    for i in range(EMA_TREND, len(candles)):
-        sig = strat.evaluate(candles, i, ind)
-        if sig:
-            print(format_signal(sig) + "\n")
+    pnls: list[float] = []
+    print(f"Backtest on {len(candles)} 4-hour candles: {ts(candles[0].time)} -> {ts(candles[-1].time)}\n")
+    for i in range(len(candles)):
+        nxt = candles[i + 1].open if i + 1 < len(candles) else None
+        for sig in strat.step(candles, i, ind, nxt):
+            if not quiet:
+                print(format_signal(sig) + "\n")
             if sig.pnl is not None:
-                trades.append(sig.pnl)
-    wins = [t for t in trades if t > 0]
+                pnls.append(sig.pnl - COST)
     print("-" * 60)
-    if not trades:
+    if not pnls:
         print("No completed trades in this period.")
         return
-    print(f"Trades: {len(trades)}   Wins: {len(wins)} ({100 * len(wins) / len(trades):.0f}%)")
-    print(f"Total: {sum(trades):+,.2f} $/oz   Avg: {sum(trades) / len(trades):+,.2f} $/oz per trade")
+    wins = [p for p in pnls if p > 0]
+    losses = [p for p in pnls if p <= 0]
+    pf = sum(wins) / -sum(losses) if losses and sum(losses) else float("inf")
+    print(f"Trades: {len(pnls)}   Wins: {len(wins)} ({100 * len(wins) / len(pnls):.0f}%)   Profit factor: {pf:.2f}")
+    print(f"Avg win: {sum(wins) / max(len(wins), 1):+,.2f}   Avg loss: {sum(losses) / max(len(losses), 1):+,.2f} $/oz")
+    print(f"Total after ${COST} costs: {sum(pnls):+,.2f} $/oz")
     print("Past results do not guarantee future results.")
 
 
-def load_state(strat: Strategy, interval: str, source: str) -> int:
+def describe_now(candles: list[Candle], closed: list[Candle], ind: dict, strat: Strategy) -> str:
+    j, live = len(closed) - 1, candles[-1]
+    trigger = max(c.high for c in closed[-BREAKOUT_N:])
+    trend_up = closed[j].close > ind["trend"][j]
+    p = strat.position
+    if p:
+        return f"HOLD BUY from {p.entry:,.2f} | stop {p.stop:,.2f} | P/L {live.close - p.entry:+,.2f} $/oz"
+    if not trend_up:
+        return f"DO NOTHING - downtrend (below EMA200 {ind['trend'][j]:,.2f}); no buys, and selling lost money in testing"
+    if live.close > trigger:
+        return f"GET READY - price is above the trigger {trigger:,.2f}; BUY if this 4h candle closes above it"
+    return f"DO NOTHING - uptrend, waiting for a 4h close above {trigger:,.2f} ({trigger - live.close:,.2f} away)"
+
+
+def load_state(strat: Strategy, source: str) -> int:
     try:
         s = json.loads(STATE_FILE.read_text())
-        if s.get("interval") == interval and s.get("source") == source:
+        if s.get("source") == source and s.get("version") == 2:
             strat.position = Position(**s["position"]) if s.get("position") else None
             return int(s.get("last_time", 0))
     except (OSError, ValueError, KeyError, TypeError):
@@ -329,63 +345,45 @@ def load_state(strat: Strategy, interval: str, source: str) -> int:
     return 0
 
 
-def save_state(strat: Strategy, interval: str, source: str, last_time: int) -> None:
+def save_state(strat: Strategy, source: str, last_time: int) -> None:
     STATE_FILE.write_text(json.dumps({
-        "interval": interval, "source": source, "last_time": last_time,
+        "version": 2, "source": source, "last_time": last_time,
         "position": asdict(strat.position) if strat.position else None,
     }, indent=2))
 
 
-def live(source: str, interval: str, every: int) -> None:
+def live(source: str, every: int) -> None:
     fetch = fetch_binance if source == "binance" else fetch_yahoo
     strat = Strategy()
-    last = load_state(strat, interval, source)
-    print(f"Gold Signal Bot - {source} - {interval} chart - checking every {every}s. Ctrl+C to stop.")
-    if strat.position:
-        p = strat.position
-        print(f"Resuming open {p.side} from {p.entry:,.2f} (SL {p.stop:,.2f} / TP {p.target:,.2f})")
-    first = last == 0
-    warned = None
+    last = load_state(strat, source)
+    print(f"Gold Signal Bot v2 - {source} - 4-hour breakout signals - checking every {every}s. Ctrl+C to stop.")
+    first, warned = last == 0, None
     while True:
         try:
-            candles = fetch(interval)
+            candles = fetch("4h")
             closed = candles[:-1]  # last candle is still forming
             if len(closed) < EMA_TREND + 2:
                 print("Not enough history yet."); time.sleep(every); continue
             ind = indicators(closed)
-            if first:
-                # warm up silently: replay history so we know if a trade is already running
-                for i in range(EMA_TREND, len(closed)):
-                    strat.evaluate(closed, i, ind)
-                last, first = closed[-1].time, False
-                if strat.position:
-                    p = strat.position
-                    print(f"Note: strategy is currently in a {p.side} from {p.entry:,.2f} "
-                          f"(SL {p.stop:,.2f} / TP {p.target:,.2f}). Waiting for the next signal.")
-            else:
-                for i in range(EMA_TREND, len(closed)):
-                    if closed[i].time > last:
-                        sig = strat.evaluate(closed, i, ind)
-                        if sig:
-                            alert(sig)
-                last = closed[-1].time
+            for i in range(len(closed)):
+                if first or closed[i].time > last:
+                    nxt = candles[i + 1].open
+                    for sig in strat.step(closed, i, ind, nxt):
+                        if not first and not (sig.action == "CLOSE" and sig.opened == warned):
+                            alert(sig)  # skip a CLOSE we already announced live
+            if first and strat.position:
+                p = strat.position
+                print(f"Note: the strategy is already in a BUY from {p.entry:,.2f}. Stop is now {p.stop:,.2f}.")
+            first, last = False, closed[-1].time
 
-            # Real-time check on the candle that is still forming: stop or target already touched?
+            # Real time: has the live candle already touched the stop?
             p, lc = strat.position, candles[-1]
-            if p and warned != p.opened:
-                hit_sl = lc.low <= p.stop if p.side == "LONG" else lc.high >= p.stop
-                hit_tp = lc.high >= p.target if p.side == "LONG" else lc.low <= p.target
-                if hit_sl or hit_tp:
-                    warned = p.opened
-                    alert(Signal("CLOSE", lc.close, int(time.time()),
-                                 f"Close {p.side} NOW: {'stop loss' if hit_sl else 'take profit'} touched on the live candle"))
-            save_state(strat, interval, source, last)
-
-            j = len(closed) - 1
-            pos = f"{strat.position.side} from {strat.position.entry:,.2f}" if strat.position else "FLAT (no trade)"
-            trend = "UP" if closed[j].close > ind["trend"][j] else "DOWN"
-            print(f"[{datetime.now():%H:%M:%S}] price {candles[-1].close:,.2f} | trend {trend} | "
-                  f"RSI {ind['rsi'][j]:.0f} | {pos}", flush=True)
+            if p and warned != p.opened and lc.low <= p.stop:
+                warned = p.opened
+                alert(Signal("CLOSE", lc.close, int(time.time()),
+                             f"Close the buy NOW: price touched the stop at {p.stop:,.2f}", pnl=lc.close - p.entry))
+            save_state(strat, source, last)
+            print(f"[{datetime.now():%H:%M:%S}] price {lc.close:,.2f} | {describe_now(candles, closed, ind, strat)}", flush=True)
         except KeyboardInterrupt:
             raise
         except Exception as e:
@@ -394,25 +392,27 @@ def live(source: str, interval: str, every: int) -> None:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Gold buy/sell/close signal bot")
+    ap = argparse.ArgumentParser(description="Gold BUY / CLOSE / DO NOTHING signal bot (4-hour breakout)")
     ap.add_argument("--source", choices=["binance", "yahoo"], default="binance")
-    ap.add_argument("--interval", choices=list(INTERVALS), default="15m")
     ap.add_argument("--every", type=int, default=5, help="seconds between checks (live mode)")
     ap.add_argument("--backtest", action="store_true", help="test the strategy on recent history")
+    ap.add_argument("--csv", help="test the strategy on an MT5 history export (any timeframe up to 4h)")
     ap.add_argument("--demo", action="store_true", help="backtest on fake prices (no internet)")
+    ap.add_argument("--quiet", action="store_true", help="backtest summary only")
     args = ap.parse_args()
 
     if os.name == "nt":
         os.system("")  # enable colours on Windows terminals
-
     try:
         if args.demo:
-            backtest(fake_candles())
+            backtest(fake_candles(), args.quiet)
+        elif args.csv:
+            backtest(load_csv(args.csv), args.quiet)
         elif args.backtest:
             fetch = fetch_binance if args.source == "binance" else fetch_yahoo
-            backtest(fetch(args.interval, 1000)[:-1])
+            backtest(fetch("4h", 1000)[:-1], args.quiet)
         else:
-            live(args.source, args.interval, args.every)
+            live(args.source, args.every)
     except KeyboardInterrupt:
         print("\nStopped.")
         sys.exit(0)

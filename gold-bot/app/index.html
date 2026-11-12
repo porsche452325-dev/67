@@ -50,7 +50,14 @@ header{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .s-BUY{border-color:var(--buy)} .s-BUY .act{color:var(--buy)}
 .s-SELL{border-color:var(--sell)} .s-SELL .act{color:var(--sell)}
 .s-CLOSE{border-color:var(--close)} .s-CLOSE .act{color:var(--close)}
-.s-HOLD .act{color:var(--fg)} .s-WAIT .act{color:var(--muted)}
+.s-HOLD .act{color:var(--fg)} .s-WAIT .act,.s-DO .act{color:var(--muted)}
+.s-GET{border-color:var(--gold)} .s-GET .act{color:var(--gold)}
+.signal .next{margin-top:10px;padding:10px 12px;border-radius:8px;background:var(--bg);font-size:14px;font-weight:600}
+.sub{color:var(--muted);font-size:12px;text-align:center}
+.tested .tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:10px 0}
+.tested .tgrid b{display:block;font:700 17px var(--mono);color:var(--gold)}
+.tested .tgrid small{color:var(--muted);font-size:11px}
+.stats b{font-size:15px}
 .flash{animation:flash 1s ease-out 3}
 @keyframes flash{50%{background:#2a2410}}
 @media (prefers-reduced-motion:reduce){.flash{animation:none}}
@@ -73,6 +80,7 @@ li .r{font:12px var(--mono);text-align:right}
 .match input{flex:2;min-width:0;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:11px;font:600 15px var(--mono)}
 .match .btn{flex:1;padding:11px 6px}
 .match .note{margin-top:8px}
+.fld{flex:1;min-width:0;display:grid;gap:4px}.fld small{color:var(--muted);font-size:11px}.fld input{width:100%}
 .status{color:var(--muted);font-size:12px;text-align:center}
 .status.err{color:var(--sell)}
 .note{color:var(--muted);font-size:12px;line-height:1.5}
@@ -86,29 +94,36 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
     <div><div class="price" id="price">—</div><div class="chg" id="chg">&nbsp;</div></div>
   </header>
 
-  <div class="tabs" id="tabs">
-    <button data-tf="5m">M5</button><button data-tf="15m" class="on">M15</button>
-    <button data-tf="1h">H1</button><button data-tf="4h">H4</button>
-  </div>
+  <div class="sub">Signals from the <b>4-hour chart</b> · tested on 9 years of real XAUUSD</div>
 
   <section class="card signal s-WAIT" id="sig">
     <div class="act" id="act">LOADING</div>
     <div class="why" id="why">Getting the live gold chart…</div>
+    <div class="next" id="next" hidden></div>
     <div class="levels" id="levels" hidden>
-      <div><small>Entry</small><b id="lvE">—</b></div>
+      <div><small id="lvEl">Entry</small><b id="lvE">—</b></div>
       <div><small>Stop loss</small><b id="lvS">—</b></div>
-      <div><small>Take profit</small><b id="lvT">—</b></div>
+      <div><small>Lot size</small><b id="lvL">—</b></div>
     </div>
     <div class="pnl" id="pnl" hidden></div>
   </section>
 
-  <canvas id="chart" aria-label="Gold candlestick chart with EMA 9, 21 and 200"></canvas>
+  <canvas id="chart" aria-label="4-hour gold chart with the buy trigger line and EMA 200"></canvas>
 
   <div class="stats">
     <div class="card"><small>Trend</small><b id="stTrend">—</b></div>
-    <div class="card"><small>RSI 14</small><b id="stRsi">—</b></div>
-    <div class="card"><small>ATR 14</small><b id="stAtr">—</b></div>
+    <div class="card"><small>Buy trigger</small><b id="stTrig">—</b></div>
+    <div class="card"><small>Candle closes</small><b id="stNext">—</b></div>
   </div>
+
+  <form class="card match" id="riskForm">
+    <label>Lot size calculator</label>
+    <div class="row">
+      <div class="fld"><small>Account balance $</small><input id="bal" type="number" inputmode="decimal" step="any" placeholder="5000"></div>
+      <div class="fld"><small>Risk per trade %</small><input id="riskPct" type="number" inputmode="decimal" step="any" placeholder="1"></div>
+    </div>
+    <div class="note">Lot size makes the stop loss cost this % of your balance. 1 lot = 100 oz on most brokers; check yours. Most traders risk 1% or less.</div>
+  </form>
 
   <form class="card match" id="matchForm">
     <label for="brokerPx">Match my broker</label>
@@ -128,25 +143,41 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
   <ul id="hist"><li><span class="t">—</span><span>No signals yet</span><span></span></li></ul>
   <div class="note" id="score"></div>
 
+  <section class="card tested">
+    <h2>Tested on real gold</h2>
+    <div class="tgrid">
+      <div><b>169</b><small>trades, 2017–2026</small></div>
+      <div><b>46%</b><small>won</small></div>
+      <div><b>$45 / $19</b><small>avg win / avg loss per oz</small></div>
+      <div><b>2.09</b><small>profit factor</small></div>
+      <div><b>9 of 10</b><small>years profitable</small></div>
+      <div><b>−$356</b><small>worst drawdown per oz</small></div>
+    </div>
+    <p class="note">Exness MT5 XAUUSD, 1-minute data from Apr 2017 to Aug 2026, with $0.35 spread and slippage per trade.
+    The rules were picked on 2017–2022 only, then checked on 2023–2026, which they had never seen: profit factor 1.59 before, 2.34 after.
+    More than 100 other variations were tested on the same data, including the old 15-minute rules, pullback entries, London-session breakouts and every SELL rule. None of those made money in both periods. Past results don't guarantee future ones.</p>
+  </section>
+
   <div class="status" id="status">Connecting…</div>
   <p class="note">
-    <b>How it decides.</b> BUY when the 9 EMA crosses above the 21 EMA, price is above the 200 EMA, and RSI is 50–70.
-    SELL is the mirror (below the 200 EMA, RSI 30–50). Stop loss is 1.5 × ATR and take profit is 3 × ATR.
-    CLOSE when the stop or target is hit, or the EMAs cross back. Price is PAXG, a token backed by 1 oz of gold, streamed live trade by trade. Use
+    <b>How it decides.</b> BUY when a 4-hour candle closes above the highest high of the previous 55 candles, while price is above the 200 EMA.
+    The first stop loss is 2 × ATR below entry. After that it becomes a trailing stop: it follows the highest price minus 3 × ATR and only ever moves up.
+    CLOSE when price touches the stop. There is no fixed take profit, so winners can run.
+    It never says SELL: selling gold lost money in testing. Price is PAXG, a token backed by 1 oz of gold, streamed live; use
     "Match my broker" so the numbers line up with your MT5. Not financial advice.
   </p>
 </div>
 
 <script>
 "use strict";
-const CFG = { fast: 9, slow: 21, trend: 200, rsi: 14, atr: 14, sl: 1.5, tp: 3.0,
-  buyRsi: [50, 70], sellRsi: [30, 50], };
+const CFG = { N: 55, trend: 200, atr: 14, sl: 2.0, trail: 3.0, lotOz: 100 };
 const WS_HOSTS = ["wss://data-stream.binance.vision", "wss://stream.binance.com:9443", "wss://stream.binance.com:443"];
 const HOSTS = ["https://data-api.binance.vision", "https://api.binance.com", "https://api1.binance.com"];
 const $ = id => document.getElementById(id);
-let OFF = 0, tf = "15m", hostIdx = 0, soundOn = false, audioCtx = null, lastAlertKey = null, wakeLock = null;
+const tf = "4h";
+let OFF = 0, hostIdx = 0, soundOn = false, audioCtx = null, lastAlertKey = null, wakeLock = null;
 
-try { OFF = +(localStorage.getItem("off") || 0) || 0; tf = localStorage.getItem("tf") || tf; soundOn = false; lastAlertKey = localStorage.getItem("lastAlert"); } catch (e) {}
+try { OFF = +(localStorage.getItem("off") || 0) || 0; soundOn = false; lastAlertKey = localStorage.getItem("lastAlert"); } catch (e) {}
 
 // ---------- data ----------
 async function fetchCandles() {
@@ -154,7 +185,7 @@ async function fetchCandles() {
   for (let n = 0; n < HOSTS.length; n++) {
     const host = HOSTS[(hostIdx + n) % HOSTS.length];
     try {
-      const r = await fetch(`${host}/api/v3/klines?symbol=PAXGUSDT&interval=${tf}&limit=600`, { cache: "no-store" });
+      const r = await fetch(`${host}/api/v3/klines?symbol=PAXGUSDT&interval=${tf}&limit=1000`, { cache: "no-store" });
       if (!r.ok) throw new Error("HTTP " + r.status);
       const rows = await r.json();
       hostIdx = (hostIdx + n) % HOSTS.length;
@@ -184,64 +215,75 @@ function atr(cs, n) {
   });
 }
 
-// ---------- strategy (same rules as gold_bot.py) ----------
-function run(closed) {
-  const cl = closed.map(c => c.c);
-  const ind = { f: ema(cl, CFG.fast), s: ema(cl, CFG.slow), tr: ema(cl, CFG.trend), r: rsi(cl, CFG.rsi), a: atr(closed, CFG.atr) };
+// ---------- strategy (same rules as gold_bot.py and the backtest) ----------
+// BUY: 4h close above the previous 55-candle high while above EMA 200. Enter at next candle open.
+// Stop: entry - 2 ATR, then trail at highest high - 3 ATR (ATR fixed at entry). Never sells.
+function run(closed, liveOpen) {
+  const n = closed.length, cl = closed.map(c => c.c);
+  const tr = ema(cl, CFG.trend), a = atr(closed, CFG.atr), hh = new Array(n).fill(NaN);
+  for (let i = CFG.N; i < n; i++) { let m = -Infinity; for (let k = i - CFG.N; k < i; k++) m = Math.max(m, closed[k].h); hh[i] = m; }
   let pos = null; const sigs = [];
-  const close = (price, i, why) => {
-    const pnl = pos.side === "LONG" ? price - pos.entry : pos.entry - price;
-    sigs.push({ act: "CLOSE", side: pos.side, price, t: closed[i].t, i, why, pnl }); pos = null;
-  };
-  for (let i = CFG.trend; i < closed.length; i++) {
-    const c = closed[i], f = ind.f, s = ind.s, r = ind.r[i], a = ind.a[i];
-    const up = f[i - 1] <= s[i - 1] && f[i] > s[i], dn = f[i - 1] >= s[i - 1] && f[i] < s[i];
-    if (pos) {
-      if (pos.side === "LONG") {
-        if (c.l <= pos.stop) close(pos.stop, i, "Stop loss hit");
-        else if (c.h >= pos.target) close(pos.target, i, "Take profit hit");
-        else if (dn) close(c.c, i, "Trend turned down (EMA cross)");
+  for (let i = CFG.N; i < n; i++) {
+    const c = closed[i];
+    if (pos && i >= pos.i0) {
+      if (c.l <= pos.stop) {
+        const px = Math.min(c.o, pos.stop);
+        sigs.push({ act: "CLOSE", price: px, t: c.t, i, pnl: px - pos.entry,
+          why: px >= pos.entry ? "Trailing stop hit, profit locked in" : "Stop loss hit" });
+        pos = null;
       } else {
-        if (c.h >= pos.stop) close(pos.stop, i, "Stop loss hit");
-        else if (c.l <= pos.target) close(pos.target, i, "Take profit hit");
-        else if (up) close(c.c, i, "Trend turned up (EMA cross)");
+        pos.best = Math.max(pos.best, c.h);
+        pos.stop = Math.max(pos.stop, pos.best - CFG.trail * pos.atr);
       }
-      continue;
     }
-    if (up && c.c > ind.tr[i] && r >= CFG.buyRsi[0] && r <= CFG.buyRsi[1]) {
-      pos = { side: "LONG", entry: c.c, stop: c.c - CFG.sl * a, target: c.c + CFG.tp * a, t: c.t };
-      sigs.push({ act: "BUY", price: c.c, t: c.t, i, stop: pos.stop, target: pos.target,
-        why: `Uptrend (above EMA 200), EMA 9 crossed above EMA 21, RSI ${r.toFixed(0)}` });
-    } else if (dn && c.c < ind.tr[i] && r >= CFG.sellRsi[0] && r <= CFG.sellRsi[1]) {
-      pos = { side: "SHORT", entry: c.c, stop: c.c + CFG.sl * a, target: c.c - CFG.tp * a, t: c.t };
-      sigs.push({ act: "SELL", price: c.c, t: c.t, i, stop: pos.stop, target: pos.target,
-        why: `Downtrend (below EMA 200), EMA 9 crossed below EMA 21, RSI ${r.toFixed(0)}` });
+    if (!pos && i >= CFG.trend && c.c > hh[i] && c.c > tr[i]) {
+      const entry = i + 1 < n ? closed[i + 1].o : liveOpen;
+      pos = { entry, stop: entry - CFG.sl * a[i], atr: a[i], best: entry, i0: i + 1, t: i + 1 < n ? closed[i + 1].t : c.closeT + 1 };
+      sigs.push({ act: "BUY", price: entry, t: c.t, i, stop: pos.stop,
+        why: `A 4-hour candle closed at ${fmtP(c.c)}, above the 55-candle high of ${fmtP(hh[i])}, in an uptrend` });
     }
   }
-  return { ind, pos, sigs };
+  return { tr, a, hh, pos, sigs };
 }
 
 // ---------- rendering ----------
 const fmt = x => x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtP = x => fmt(x + OFF); // a price, shifted to the broker's quote
 const hhmm = t => new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const clock = t => new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+let BAL = NaN, RISK = 1;
+try { BAL = parseFloat(localStorage.getItem("bal")); RISK = parseFloat(localStorage.getItem("risk")) || 1; } catch (e) {}
 
-function showSignal(state, why, lv, pnlText) {
+function lots(stopDist) {
+  if (!(stopDist > 0)) return "Profit locked";
+  if (!(BAL > 0)) return "Set balance ↓";
+  const l = Math.floor((BAL * RISK / 100) / (stopDist * CFG.lotOz) * 100) / 100;
+  if (l >= 0.01) return l.toFixed(2) + " lots";
+  return `0.01 = ${(100 * stopDist * CFG.lotOz * 0.01 / BAL).toFixed(1)}% risk`;
+}
+
+function showSignal(state, why, next, lv, pnlText) {
   const el = $("sig");
   el.className = "card signal s-" + state.split(" ")[0];
   $("act").textContent = state;
   $("why").textContent = why;
+  $("next").hidden = !next; if (next) $("next").textContent = next;
   $("levels").hidden = !lv;
-  if (lv) { $("lvE").textContent = fmtP(lv.entry); $("lvS").textContent = fmtP(lv.stop); $("lvT").textContent = fmtP(lv.target); }
+  if (lv) {
+    $("lvEl").textContent = lv.label || "Entry";
+    $("lvE").textContent = fmtP(lv.entry); $("lvS").textContent = fmtP(lv.stop); $("lvL").textContent = lots(lv.entry - lv.stop);
+  }
   $("pnl").hidden = !pnlText; if (pnlText) $("pnl").innerHTML = pnlText;
 }
 
 function render(candles) {
   const live = candles[candles.length - 1];
   const closed = candles.slice(0, -1);
-  const { ind, pos, sigs } = run(closed);
-  const j = closed.length - 1, last = sigs[sigs.length - 1];
-  const px = live.c;
+  const R = run(closed, live.o);
+  const { tr, a, pos, sigs } = R;
+  const j = closed.length - 1, last = sigs[sigs.length - 1], px = live.c;
+  const trigger = Math.max(...closed.slice(-CFG.N).map(c => c.h));
+  const closesAt = live.closeT + 1;
 
   $("price").textContent = fmtP(px);
   const prev = candles[Math.max(0, candles.length - 1 - Math.round(86400000 / (live.closeT - live.t + 1)))];
@@ -249,80 +291,84 @@ function render(candles) {
   $("chg").textContent = `${d >= 0 ? "+" : ""}${fmt(d)} (24h)`;
   $("chg").style.color = d >= 0 ? "var(--buy)" : "var(--sell)";
 
-  const trendUp = closed[j].c > ind.tr[j];
+  const trendUp = closed[j].c > tr[j];
   $("stTrend").textContent = trendUp ? "UP ▲" : "DOWN ▼";
   $("stTrend").style.color = trendUp ? "var(--buy)" : "var(--sell)";
-  $("stRsi").textContent = ind.r[j].toFixed(0);
-  $("stAtr").textContent = fmt(ind.a[j]);
+  $("stTrig").textContent = fmtP(trigger);
+  const mins = Math.max(0, Math.round((closesAt - Date.now()) / 60000));
+  $("stNext").textContent = `${clock(closesAt)} (${Math.floor(mins / 60)}h ${mins % 60}m)`;
 
-  // Decide what to show. A signal on the candle that just closed is "fresh".
   let state, alertKey = null;
   const fresh = last && last.i === j;
-  if (pos) {
-    // Intrabar check on the live candle: stop or target already touched?
-    const hitStop = pos.side === "LONG" ? live.l <= pos.stop : live.h >= pos.stop;
-    const hitTp = pos.side === "LONG" ? live.h >= pos.target : live.l <= pos.target;
-    const pl = pos.side === "LONG" ? px - pos.entry : pos.entry - px;
-    const plTxt = `Open P/L now: <span style="color:${pl >= 0 ? "var(--buy)" : "var(--sell)"}">${pl >= 0 ? "+" : ""}${fmt(pl)} $/oz</span>`;
-    if (hitStop || hitTp) {
-      state = "CLOSE";
-      showSignal(state, `Close your ${pos.side === "LONG" ? "buy" : "sell"} now: ${hitStop ? "stop loss" : "take profit"} touched on the live candle.`, pos, plTxt);
-      alertKey = "close-live-" + pos.t;
-    } else if (fresh) {
-      state = last.act;
-      showSignal(state, `${last.why}. New signal at ${hhmm(live.t)}.`, pos, plTxt);
-      alertKey = last.act + last.t;
-    } else {
-      state = pos.side === "LONG" ? "HOLD BUY" : "HOLD SELL";
-      showSignal(state, `In a ${pos.side === "LONG" ? "buy" : "sell"} since ${hhmm(pos.t)}. Keep it until the stop, the target, or an EMA cross back.`, pos, plTxt);
-    }
+  const plTxt = p => { const pl = px - p.entry; return `Open P/L now: <span style="color:${pl >= 0 ? "var(--buy)" : "var(--sell)"}">${pl >= 0 ? "+" : ""}${fmt(pl)} $/oz</span>`; };
+  if (pos && live.l <= pos.stop) {
+    state = "CLOSE";
+    showSignal(state, `Price touched your stop at ${fmtP(pos.stop)}. Close the buy now.`,
+      pos.stop >= pos.entry ? "This trade still ends in profit." : "Small loss. Taking it is part of the plan: losses stay small so winners can pay.",
+      pos, plTxt(pos));
+    alertKey = "close-live-" + pos.t;
+  } else if (pos && fresh) {
+    state = "BUY";
+    showSignal(state, last.why + ".", `BUY now at about ${fmtP(px)}. Put your stop loss at ${fmtP(pos.stop)}. No take profit: the stop will trail up.`, pos, plTxt(pos));
+    alertKey = "BUY" + last.t;
+  } else if (pos) {
+    state = "HOLD BUY";
+    const moved = pos.stop > pos.entry - CFG.sl * pos.atr + 1e-9;
+    showSignal(state, `In a buy since ${hhmm(pos.t)}. Keep it open.`,
+      `Move your stop loss to ${fmtP(pos.stop)}${moved ? " (it trailed up)" : ""}. Close if price touches it.`, pos, plTxt(pos));
   } else if (fresh && last.act === "CLOSE") {
     state = "CLOSE";
-    showSignal(state, `Close your ${last.side === "LONG" ? "buy" : "sell"}: ${last.why}.`, null,
+    showSignal(state, `${last.why}. Close the buy if it is still open.`, null, null,
       `Result: <span style="color:${last.pnl >= 0 ? "var(--buy)" : "var(--sell)"}">${last.pnl >= 0 ? "+" : ""}${fmt(last.pnl)} $/oz</span>`);
     alertKey = "CLOSE" + last.t;
+  } else if (!trendUp) {
+    state = "DO NOTHING";
+    showSignal(state, `Gold is in a downtrend on the 4-hour chart (below the 200 EMA at ${fmtP(tr[j])}). Don't buy. Selling also lost money in testing, so don't sell either.`,
+      `Wait. Buying is only allowed again once a 4-hour candle closes above ${fmtP(tr[j])}.`, null, null);
+  } else if (px > trigger) {
+    state = "GET READY";
+    showSignal(state, `Price is above the buy trigger ${fmtP(trigger)} right now.`,
+      `If this 4-hour candle closes above ${fmtP(trigger)} at ${clock(closesAt)}, it's a BUY. Don't buy early: it can still fall back.`,
+      { label: "If it triggers", entry: px, stop: px - CFG.sl * a[j] }, null);
   } else {
-    state = "WAIT";
-    const f = ind.f[j], s = ind.s[j];
-    let hint = trendUp ? "Uptrend. Waiting for EMA 9 to cross above EMA 21 for a BUY." : "Downtrend. Waiting for EMA 9 to cross below EMA 21 for a SELL.";
-    if (trendUp && f > s) hint = "Uptrend, but the cross already happened. Waiting for a fresh BUY setup.";
-    if (!trendUp && f < s) hint = "Downtrend, but the cross already happened. Waiting for a fresh SELL setup.";
-    showSignal(state, "No trade right now. " + hint, null, null);
+    state = "DO NOTHING";
+    showSignal(state, `Uptrend, but no breakout yet. Price is ${fmt(trigger - px)} below the buy trigger.`,
+      `BUY only if a 4-hour candle closes above ${fmtP(trigger)}. Next candle closes at ${clock(closesAt)}.`, null, null);
   }
 
   if (alertKey && alertKey !== lastAlertKey) {
     lastAlertKey = alertKey;
     try { localStorage.setItem("lastAlert", alertKey); } catch (e) {}
     $("sig").classList.remove("flash"); void $("sig").offsetWidth; $("sig").classList.add("flash");
-    beep(state.startsWith("BUY") ? "buy" : state.startsWith("SELL") ? "sell" : "close");
+    beep(state === "BUY" ? "buy" : "close");
   }
 
-  // History
   const recent = sigs.slice(-10).reverse();
   $("hist").innerHTML = recent.length ? recent.map(s => {
-    const col = s.act === "BUY" ? "var(--buy)" : s.act === "SELL" ? "var(--sell)" : "var(--close)";
+    const col = s.act === "BUY" ? "var(--buy)" : "var(--close)";
     const r = s.act === "CLOSE" ? `<span style="color:${s.pnl >= 0 ? "var(--buy)" : "var(--sell)"}">${s.pnl >= 0 ? "+" : ""}${fmt(s.pnl)}</span>` : "@ " + fmtP(s.price);
     return `<li><span class="tag" style="color:${col}">${s.act}</span><span class="t">${hhmm(s.t)}</span><span class="r">${r}</span></li>`;
   }).join("") : `<li><span class="t">—</span><span>No signals in the loaded history</span><span></span></li>`;
   const done = sigs.filter(s => s.act === "CLOSE");
   if (done.length) {
-    const w = done.filter(s => s.pnl > 0).length, tot = done.reduce((a, s) => a + s.pnl, 0);
-    $("score").textContent = `On the loaded chart: ${done.length} closed trades, ${w} wins (${Math.round(100 * w / done.length)}%), total ${tot >= 0 ? "+" : ""}${fmt(tot)} $/oz. Past results don't guarantee future ones.`;
+    const w = done.filter(s => s.pnl > 0).length, tot = done.reduce((x, s) => x + s.pnl, 0);
+    $("score").textContent = `Last ${Math.round(closed.length / 6)} days on this feed: ${done.length} closed trades, ${w} wins, total ${tot >= 0 ? "+" : ""}${fmt(tot)} $/oz.`;
   } else $("score").textContent = "";
 
-  draw(candles, ind, sigs, pos);
+  draw(candles, R, trigger);
 }
 
-function draw(candles, ind, sigs, pos) {
+function draw(candles, R, trigger) {
+  const { tr, hh, sigs, pos } = R;
   const cv = $("chart"), dpr = window.devicePixelRatio || 1;
   const W = cv.clientWidth, H = cv.clientHeight;
   cv.width = W * dpr; cv.height = H * dpr;
   const g = cv.getContext("2d"); g.scale(dpr, dpr);
   const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-  const N = Math.min(80, candles.length), start = candles.length - N, view = candles.slice(start);
+  const N = Math.min(90, candles.length), start = candles.length - N, view = candles.slice(start);
   const padR = 58, padT = 10, padB = 18, cw = (W - padR) / N;
-  let hi = Math.max(...view.map(c => c.h)), lo = Math.min(...view.map(c => c.l));
-  if (pos) { hi = Math.max(hi, pos.stop, pos.target); lo = Math.min(lo, pos.stop, pos.target); }
+  let hi = Math.max(...view.map(c => c.h), trigger), lo = Math.min(...view.map(c => c.l));
+  if (pos) lo = Math.min(lo, pos.stop);
   const span = hi - lo || 1; hi += span * .04; lo -= span * .04;
   const y = p => padT + (hi - p) / (hi - lo) * (H - padT - padB);
   const x = i => (i - start) * cw + cw / 2;
@@ -333,11 +379,6 @@ function draw(candles, ind, sigs, pos) {
     g.beginPath(); g.moveTo(0, yy); g.lineTo(W - padR, yy); g.stroke();
     g.fillText(fmtP(p), W - padR + 4, yy + 3);
   }
-  const line = (arr, col, w) => {
-    g.strokeStyle = col; g.lineWidth = w; g.beginPath();
-    for (let i = start; i < candles.length - 1; i++) { const X = x(i), Y = y(arr[i]); i === start ? g.moveTo(X, Y) : g.lineTo(X, Y); }
-    g.stroke();
-  };
   view.forEach((c, k) => {
     const i = start + k, X = x(i), upc = c.c >= c.o;
     g.strokeStyle = g.fillStyle = upc ? css("--buy") : css("--sell");
@@ -346,27 +387,35 @@ function draw(candles, ind, sigs, pos) {
     g.globalAlpha = i === candles.length - 1 ? .55 : 1;
     g.fillRect(X - cw * .35, top, cw * .7, bh); g.globalAlpha = 1;
   });
-  line(ind.tr, "#7e57c2", 1.5); line(ind.s, "#42a5f5", 1.2); line(ind.f, css("--gold"), 1.2);
-
+  // EMA 200
+  g.strokeStyle = "#7e57c2"; g.lineWidth = 1.5; g.beginPath();
+  for (let i = start; i < candles.length - 1; i++) { const X = x(i), Y = y(tr[i]); i === start ? g.moveTo(X, Y) : g.lineTo(X, Y); }
+  g.stroke();
+  // buy trigger (55-candle high), stepped, plus its live value
+  g.strokeStyle = css("--gold"); g.lineWidth = 1; g.setLineDash([3, 3]); g.beginPath();
+  const trg = i => (i < candles.length - 1 ? hh[i] : trigger);
+  for (let i = start; i < candles.length; i++) { const v = trg(i); if (!isFinite(v)) continue; const X0 = x(i) - cw / 2, X1 = x(i) + cw / 2; g.moveTo(X0, y(v)); g.lineTo(X1, y(v)); }
+  g.stroke(); g.setLineDash([]);
   if (pos) {
-    [[pos.entry, css("--fg")], [pos.stop, css("--sell")], [pos.target, css("--buy")]].forEach(([p, col]) => {
+    [[pos.entry, css("--fg")], [pos.stop, css("--sell")]].forEach(([p, col]) => {
       g.setLineDash([4, 4]); g.strokeStyle = col; g.beginPath(); g.moveTo(0, y(p)); g.lineTo(W - padR, y(p)); g.stroke(); g.setLineDash([]);
     });
   }
   sigs.filter(s => s.i >= start).forEach(s => {
     const X = x(s.i), c = candles[s.i];
-    g.fillStyle = s.act === "BUY" ? css("--buy") : s.act === "SELL" ? css("--sell") : css("--close");
+    g.fillStyle = s.act === "BUY" ? css("--buy") : css("--close");
     g.beginPath();
     if (s.act === "BUY") { const Y = y(c.l) + 12; g.moveTo(X, Y - 7); g.lineTo(X - 5, Y + 2); g.lineTo(X + 5, Y + 2); }
-    else if (s.act === "SELL") { const Y = y(c.h) - 12; g.moveTo(X, Y + 7); g.lineTo(X - 5, Y - 2); g.lineTo(X + 5, Y - 2); }
     else { g.arc(X, y(s.price), 4, 0, Math.PI * 2); }
     g.fill();
   });
   const lp = candles[candles.length - 1].c, ly = y(lp);
   g.fillStyle = css("--gold"); g.fillRect(W - padR, ly - 8, padR, 16);
   g.fillStyle = css("--bg"); g.font = "bold 10px ui-monospace,Menlo,monospace"; g.fillText(fmtP(lp), W - padR + 4, ly + 3);
-  g.fillStyle = css("--muted"); g.font = "10px -apple-system,sans-serif";
-  g.fillText("— EMA 9", 6, H - 5); g.fillStyle = "#42a5f5"; g.fillText("— EMA 21", 54, H - 5); g.fillStyle = "#7e57c2"; g.fillText("— EMA 200", 108, H - 5);
+  g.font = "10px -apple-system,sans-serif";
+  g.fillStyle = css("--gold"); g.fillText("- - buy trigger", 6, H - 5);
+  g.fillStyle = "#7e57c2"; g.fillText("— EMA 200", 84, H - 5);
+  if (pos) { g.fillStyle = css("--sell"); g.fillText("- - stop", 146, H - 5); }
 }
 
 // ---------- broker matching ----------
@@ -387,6 +436,17 @@ $("matchForm").onsubmit = e => {
 };
 $("matchReset").onclick = () => { OFF = 0; try { localStorage.removeItem("off"); } catch (e) {} showMatch(); schedule(); };
 showMatch();
+
+// ---------- lot size ----------
+if (BAL > 0) $("bal").value = BAL;
+$("riskPct").value = RISK;
+const saveRisk = () => {
+  BAL = parseFloat($("bal").value); RISK = parseFloat($("riskPct").value) || 1;
+  try { localStorage.setItem("bal", String(BAL || "")); localStorage.setItem("risk", String(RISK)); } catch (e) {}
+  schedule();
+};
+$("bal").oninput = saveRisk; $("riskPct").oninput = saveRisk;
+$("riskForm").onsubmit = e => { e.preventDefault(); saveRisk(); };
 
 // ---------- alerts ----------
 function beep(kind) {
@@ -490,19 +550,10 @@ function start() {
   loadHistory().then(connect);
 }
 
-document.querySelectorAll("#tabs button").forEach(b => {
-  b.classList.toggle("on", b.dataset.tf === tf);
-  b.onclick = () => {
-    if (b.dataset.tf === tf) return;
-    tf = b.dataset.tf; try { localStorage.setItem("tf", tf); } catch (e) {}
-    document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b));
-    lastAlertKey = null; start();
-  };
-});
-
 // Safety nets: poll while the stream is down or quiet, and resync full history every 5 minutes.
 setInterval(() => { if (!wsLive || Date.now() - lastTick > 30000) loadHistory(); }, 10000);
 setInterval(loadHistory, 300000);
+setInterval(() => { showStatus(); schedule(); }, 30000);
 setInterval(showStatus, 1000);
 window.addEventListener("resize", schedule);
 document.addEventListener("visibilitychange", () => {
