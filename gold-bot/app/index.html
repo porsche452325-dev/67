@@ -68,6 +68,11 @@ li .r{font:12px var(--mono);text-align:right}
 .row{display:flex;gap:8px;flex-wrap:wrap}
 .btn{flex:1;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:11px;font:600 14px inherit}
 .btn.on{border-color:var(--gold);color:var(--gold)}
+.match label{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
+.match .row{flex-wrap:nowrap}
+.match input{flex:2;min-width:0;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:11px;font:600 15px var(--mono)}
+.match .btn{flex:1;padding:11px 6px}
+.match .note{margin-top:8px}
 .status{color:var(--muted);font-size:12px;text-align:center}
 .status.err{color:var(--sell)}
 .note{color:var(--muted);font-size:12px;line-height:1.5}
@@ -105,6 +110,16 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
     <div class="card"><small>ATR 14</small><b id="stAtr">—</b></div>
   </div>
 
+  <form class="card match" id="matchForm">
+    <label for="brokerPx">Match my broker</label>
+    <div class="row">
+      <input id="brokerPx" type="number" inputmode="decimal" step="any" placeholder="MT5 price, e.g. 3975.57">
+      <button class="btn" type="submit">Match</button>
+      <button class="btn" type="button" id="matchReset">Reset</button>
+    </div>
+    <div class="note" id="matchNote">Prices shown are PAXG/USDT. Type the XAUUSD price from MT5 and tap Match, and every price here shifts to your broker's.</div>
+  </form>
+
   <div class="row">
     <button class="btn" id="alertBtn">🔔 Turn on sound alerts</button>
   </div>
@@ -117,20 +132,21 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
   <p class="note">
     <b>How it decides.</b> BUY when the 9 EMA crosses above the 21 EMA, price is above the 200 EMA, and RSI is 50–70.
     SELL is the mirror (below the 200 EMA, RSI 30–50). Stop loss is 1.5 × ATR and take profit is 3 × ATR.
-    CLOSE when the stop or target is hit, or the EMAs cross back. Price is PAXG, a token backed by 1 oz of gold. It is
-    usually within a few dollars of XAUUSD, so place orders at your broker's prices. Not financial advice.
+    CLOSE when the stop or target is hit, or the EMAs cross back. Price is PAXG, a token backed by 1 oz of gold, streamed live trade by trade. Use
+    "Match my broker" so the numbers line up with your MT5. Not financial advice.
   </p>
 </div>
 
 <script>
 "use strict";
 const CFG = { fast: 9, slow: 21, trend: 200, rsi: 14, atr: 14, sl: 1.5, tp: 3.0,
-  buyRsi: [50, 70], sellRsi: [30, 50], refreshMs: 15000 };
+  buyRsi: [50, 70], sellRsi: [30, 50], };
+const WS_HOSTS = ["wss://data-stream.binance.vision", "wss://stream.binance.com:9443", "wss://stream.binance.com:443"];
 const HOSTS = ["https://data-api.binance.vision", "https://api.binance.com", "https://api1.binance.com"];
 const $ = id => document.getElementById(id);
-let tf = "15m", hostIdx = 0, soundOn = false, audioCtx = null, lastAlertKey = null, wakeLock = null;
+let OFF = 0, tf = "15m", hostIdx = 0, soundOn = false, audioCtx = null, lastAlertKey = null, wakeLock = null;
 
-try { tf = localStorage.getItem("tf") || tf; soundOn = false; lastAlertKey = localStorage.getItem("lastAlert"); } catch (e) {}
+try { OFF = +(localStorage.getItem("off") || 0) || 0; tf = localStorage.getItem("tf") || tf; soundOn = false; lastAlertKey = localStorage.getItem("lastAlert"); } catch (e) {}
 
 // ---------- data ----------
 async function fetchCandles() {
@@ -207,6 +223,7 @@ function run(closed) {
 
 // ---------- rendering ----------
 const fmt = x => x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtP = x => fmt(x + OFF); // a price, shifted to the broker's quote
 const hhmm = t => new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
 function showSignal(state, why, lv, pnlText) {
@@ -215,7 +232,7 @@ function showSignal(state, why, lv, pnlText) {
   $("act").textContent = state;
   $("why").textContent = why;
   $("levels").hidden = !lv;
-  if (lv) { $("lvE").textContent = fmt(lv.entry); $("lvS").textContent = fmt(lv.stop); $("lvT").textContent = fmt(lv.target); }
+  if (lv) { $("lvE").textContent = fmtP(lv.entry); $("lvS").textContent = fmtP(lv.stop); $("lvT").textContent = fmtP(lv.target); }
   $("pnl").hidden = !pnlText; if (pnlText) $("pnl").innerHTML = pnlText;
 }
 
@@ -226,7 +243,7 @@ function render(candles) {
   const j = closed.length - 1, last = sigs[sigs.length - 1];
   const px = live.c;
 
-  $("price").textContent = fmt(px);
+  $("price").textContent = fmtP(px);
   const prev = candles[Math.max(0, candles.length - 1 - Math.round(86400000 / (live.closeT - live.t + 1)))];
   const d = px - prev.c;
   $("chg").textContent = `${d >= 0 ? "+" : ""}${fmt(d)} (24h)`;
@@ -284,7 +301,7 @@ function render(candles) {
   const recent = sigs.slice(-10).reverse();
   $("hist").innerHTML = recent.length ? recent.map(s => {
     const col = s.act === "BUY" ? "var(--buy)" : s.act === "SELL" ? "var(--sell)" : "var(--close)";
-    const r = s.act === "CLOSE" ? `<span style="color:${s.pnl >= 0 ? "var(--buy)" : "var(--sell)"}">${s.pnl >= 0 ? "+" : ""}${fmt(s.pnl)}</span>` : "@ " + fmt(s.price);
+    const r = s.act === "CLOSE" ? `<span style="color:${s.pnl >= 0 ? "var(--buy)" : "var(--sell)"}">${s.pnl >= 0 ? "+" : ""}${fmt(s.pnl)}</span>` : "@ " + fmtP(s.price);
     return `<li><span class="tag" style="color:${col}">${s.act}</span><span class="t">${hhmm(s.t)}</span><span class="r">${r}</span></li>`;
   }).join("") : `<li><span class="t">—</span><span>No signals in the loaded history</span><span></span></li>`;
   const done = sigs.filter(s => s.act === "CLOSE");
@@ -314,7 +331,7 @@ function draw(candles, ind, sigs, pos) {
   for (let k = 0; k <= 4; k++) {
     const p = lo + (hi - lo) * k / 4, yy = Math.round(y(p)) + .5;
     g.beginPath(); g.moveTo(0, yy); g.lineTo(W - padR, yy); g.stroke();
-    g.fillText(fmt(p), W - padR + 4, yy + 3);
+    g.fillText(fmtP(p), W - padR + 4, yy + 3);
   }
   const line = (arr, col, w) => {
     g.strokeStyle = col; g.lineWidth = w; g.beginPath();
@@ -347,10 +364,29 @@ function draw(candles, ind, sigs, pos) {
   });
   const lp = candles[candles.length - 1].c, ly = y(lp);
   g.fillStyle = css("--gold"); g.fillRect(W - padR, ly - 8, padR, 16);
-  g.fillStyle = css("--bg"); g.font = "bold 10px ui-monospace,Menlo,monospace"; g.fillText(fmt(lp), W - padR + 4, ly + 3);
+  g.fillStyle = css("--bg"); g.font = "bold 10px ui-monospace,Menlo,monospace"; g.fillText(fmtP(lp), W - padR + 4, ly + 3);
   g.fillStyle = css("--muted"); g.font = "10px -apple-system,sans-serif";
   g.fillText("— EMA 9", 6, H - 5); g.fillStyle = "#42a5f5"; g.fillText("— EMA 21", 54, H - 5); g.fillStyle = "#7e57c2"; g.fillText("— EMA 200", 108, H - 5);
 }
+
+// ---------- broker matching ----------
+function showMatch() {
+  $("matchNote").textContent = OFF
+    ? `Showing your broker's prices: PAXG ${OFF > 0 ? "+" : "−"}${fmt(Math.abs(OFF))}. The gap drifts a little, so re-match now and then.`
+    : "Prices shown are PAXG/USDT. Type the XAUUSD price from MT5 and tap Match, and every price here shifts to your broker's.";
+}
+$("matchForm").onsubmit = e => {
+  e.preventDefault();
+  const v = parseFloat($("brokerPx").value);
+  if (!candles || !(v > 0)) { $("matchNote").textContent = "Type your broker's current XAUUSD price, for example 3975.57."; return; }
+  const gap = v - candles[candles.length - 1].c;
+  if (Math.abs(gap) > 60) { $("matchNote").textContent = `That's ${fmt(Math.abs(gap))} away from live gold (${fmt(candles[candles.length - 1].c)}). Check you typed your XAUUSD price.`; return; }
+  OFF = gap;
+  try { localStorage.setItem("off", String(OFF)); } catch (err) {}
+  $("brokerPx").value = ""; showMatch(); schedule();
+};
+$("matchReset").onclick = () => { OFF = 0; try { localStorage.removeItem("off"); } catch (e) {} showMatch(); schedule(); };
+showMatch();
 
 // ---------- alerts ----------
 function beep(kind) {
@@ -375,34 +411,105 @@ $("alertBtn").onclick = async () => {
   $("alertBtn").textContent = soundOn ? "🔔 Sound alerts on (screen stays awake)" : "🔔 Turn on sound alerts";
 };
 document.addEventListener("visibilitychange", async () => {
-  if (document.visibilityState === "visible") { if (soundOn) { try { wakeLock = await navigator.wakeLock?.request("screen"); } catch (e) {} } tick(); }
+  if (document.visibilityState === "visible" && soundOn) { try { wakeLock = await navigator.wakeLock?.request("screen"); } catch (e) {} }
 });
 
-// ---------- loop ----------
+// ---------- real-time loop ----------
+// History comes from REST once (and on resync); every trade after that streams in over a WebSocket.
+let candles = null, ws = null, wsIdx = 0, wsLive = false, gen = 0, lastTick = 0, backoff = 1000, queued = false, lastPx = null;
+
+function schedule() {
+  if (queued || !candles) return; queued = true;
+  requestAnimationFrame(() => {
+    queued = false;
+    try { render(candles); } catch (e) { console.error(e); }
+    const px = candles[candles.length - 1].c;
+    if (lastPx !== null && px !== lastPx) {
+      const el = $("price"); el.style.color = px > lastPx ? "var(--buy)" : "var(--sell)";
+      clearTimeout(el._t); el._t = setTimeout(() => el.style.color = "", 400);
+    }
+    lastPx = px; showStatus();
+  });
+}
+
+async function loadHistory() {
+  const myGen = gen;
+  try {
+    const c = await fetchCandles();
+    if (myGen !== gen) return;
+    if (c.length < CFG.trend + 5) throw new Error("not enough history");
+    candles = c; lastTick = Date.now(); schedule();
+  } catch (e) {
+    if (!candles) { $("status").className = "status err"; $("status").textContent = `Can't reach the price feed (${e.message}). Retrying…`; }
+  }
+}
+
+function applyKline(k) {
+  if (!candles) return;
+  const c = { t: k.t, o: +k.o, h: +k.h, l: +k.l, c: +k.c, closeT: k.T };
+  const last = candles[candles.length - 1];
+  if (c.t === last.t) candles[candles.length - 1] = c;
+  else if (c.t > last.t) { candles.push(c); if (candles.length > 800) candles.shift(); }
+  else return;
+  if (k.x) {
+    // Candle just closed: start the next one right away so the signal check runs on this close now.
+    const len = k.T - k.t + 1;
+    candles.push({ t: k.T + 1, o: c.c, h: c.c, l: c.c, c: c.c, closeT: k.T + len });
+  }
+  lastTick = Date.now(); schedule();
+}
+
+function connect() {
+  try { ws && ws.close(); } catch (e) {}
+  const myGen = gen, host = WS_HOSTS[wsIdx % WS_HOSTS.length];
+  const sock = new WebSocket(`${host}/ws/paxgusdt@kline_${tf}`);
+  ws = sock;
+  sock.onopen = () => { if (myGen === gen) { wsLive = true; backoff = 1000; showStatus(); } };
+  sock.onmessage = e => { if (myGen !== gen) return; try { applyKline(JSON.parse(e.data).k); } catch (err) {} };
+  sock.onclose = () => {
+    if (myGen !== gen) return;
+    wsLive = false; wsIdx++; showStatus();
+    setTimeout(() => { if (myGen === gen) connect(); }, backoff);
+    backoff = Math.min(backoff * 2, 30000);
+  };
+  sock.onerror = () => { try { sock.close(); } catch (e) {} };
+}
+
+function showStatus() {
+  if (!candles) return;
+  const ago = Math.max(0, Math.round((Date.now() - lastTick) / 1000));
+  $("status").className = "status";
+  $("status").innerHTML = wsLive
+    ? `<span style="color:var(--buy)">●</span> LIVE · every trade streams in · last tick ${ago}s ago`
+    : `<span style="color:var(--close)">●</span> Reconnecting the live stream… prices refresh every 10s meanwhile`;
+}
+
+function start() {
+  gen++; candles = null; lastPx = null; wsLive = false;
+  $("act").textContent = "LOADING"; $("why").textContent = "Getting the live gold chart…";
+  loadHistory().then(connect);
+}
+
 document.querySelectorAll("#tabs button").forEach(b => {
   b.classList.toggle("on", b.dataset.tf === tf);
   b.onclick = () => {
+    if (b.dataset.tf === tf) return;
     tf = b.dataset.tf; try { localStorage.setItem("tf", tf); } catch (e) {}
     document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b));
-    lastAlertKey = null; tick();
+    lastAlertKey = null; start();
   };
 });
-let busy = false;
-async function tick() {
-  if (busy) return; busy = true;
-  try {
-    const c = await fetchCandles();
-    if (c.length < CFG.trend + 5) throw new Error("not enough history");
-    render(c);
-    $("status").className = "status";
-    $("status").textContent = `Live · updated ${new Date().toLocaleTimeString()} · refreshes every ${CFG.refreshMs / 1000}s`;
-  } catch (e) {
-    $("status").className = "status err";
-    $("status").textContent = `Can't reach the price feed (${e.message}). Retrying…`;
-  } finally { busy = false; }
-}
-window.addEventListener("resize", () => tick());
-tick(); setInterval(tick, CFG.refreshMs);
+
+// Safety nets: poll while the stream is down or quiet, and resync full history every 5 minutes.
+setInterval(() => { if (!wsLive || Date.now() - lastTick > 30000) loadHistory(); }, 10000);
+setInterval(loadHistory, 300000);
+setInterval(showStatus, 1000);
+window.addEventListener("resize", schedule);
+document.addEventListener("visibilitychange", () => {
+  // iPhone pauses pages in the background; catch up and reconnect when it comes back.
+  if (document.visibilityState === "visible") { loadHistory(); if (!wsLive) connect(); }
+});
+start();
 </script>
 </body>
 </html>

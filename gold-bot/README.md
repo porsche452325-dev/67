@@ -9,7 +9,7 @@ You need Python 3.9 or newer. There is nothing to install.
 
 ```bash
 cd gold-bot
-python gold_bot.py                    # live 15-minute chart, checks every 30 seconds
+python gold_bot.py                    # live 15-minute chart, checks every 5 seconds
 python gold_bot.py --interval 1h      # use the 1-hour chart (fewer, stronger signals)
 python gold_bot.py --source yahoo     # gold futures (GC=F) instead of PAXG
 python gold_bot.py --backtest         # how the strategy did on the last ~1000 candles
@@ -74,7 +74,11 @@ Never risk more than you can afford to lose.
 `app/` holds the same robot as a web app that runs in Safari, with no install and no computer needed.
 It reads the live gold price, draws the chart with the EMAs and signal arrows, and shows a big **BUY / SELL / CLOSE / HOLD / WAIT** card.
 When a trade is open, the card also shows entry, stop loss, take profit and your live P/L.
-It refreshes every 15 seconds. It also warns you to **CLOSE** as soon as the live candle touches your stop or target, without waiting for the candle to finish.
+It is **real time**: every gold trade streams in over a live connection, so the price, chart and signal update instantly.
+A new BUY or SELL appears within about 2 seconds of the candle closing. It warns you to **CLOSE** the moment price touches your stop or target, without waiting for the candle to finish.
+If the live stream drops, it reconnects by itself and refreshes prices every 10 seconds in the meantime.
+
+**Match my broker:** type the XAUUSD price from MT5 and tap **Match**. Every price in the app, including entry, stop loss and take profit, then shifts to your broker's quote.
 
 1. Host the `app/` folder on any static host, such as Netlify (drag the folder onto app.netlify.com/drop) or GitHub Pages.
 2. Open the link in Safari on your iPhone, tap **Share**, then **Add to Home Screen**. It opens full screen like an app.

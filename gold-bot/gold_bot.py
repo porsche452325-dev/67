@@ -18,7 +18,7 @@ Data sources (no API key needed):
   * yahoo   : GC=F gold futures (may be delayed ~10 min, closed on weekends)
 
 Usage:
-  python gold_bot.py                      # live, 15-minute chart, checks every 30s
+  python gold_bot.py                      # live, 15-minute chart, checks every 5s
   python gold_bot.py --interval 1h        # live on the 1-hour chart
   python gold_bot.py --source yahoo       # use Yahoo gold futures instead
   python gold_bot.py --backtest           # see how the strategy did on recent candles
@@ -345,6 +345,7 @@ def live(source: str, interval: str, every: int) -> None:
         p = strat.position
         print(f"Resuming open {p.side} from {p.entry:,.2f} (SL {p.stop:,.2f} / TP {p.target:,.2f})")
     first = last == 0
+    warned = None
     while True:
         try:
             candles = fetch(interval)
@@ -368,6 +369,16 @@ def live(source: str, interval: str, every: int) -> None:
                         if sig:
                             alert(sig)
                 last = closed[-1].time
+
+            # Real-time check on the candle that is still forming: stop or target already touched?
+            p, lc = strat.position, candles[-1]
+            if p and warned != p.opened:
+                hit_sl = lc.low <= p.stop if p.side == "LONG" else lc.high >= p.stop
+                hit_tp = lc.high >= p.target if p.side == "LONG" else lc.low <= p.target
+                if hit_sl or hit_tp:
+                    warned = p.opened
+                    alert(Signal("CLOSE", lc.close, int(time.time()),
+                                 f"Close {p.side} NOW: {'stop loss' if hit_sl else 'take profit'} touched on the live candle"))
             save_state(strat, interval, source, last)
 
             j = len(closed) - 1
@@ -386,7 +397,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Gold buy/sell/close signal bot")
     ap.add_argument("--source", choices=["binance", "yahoo"], default="binance")
     ap.add_argument("--interval", choices=list(INTERVALS), default="15m")
-    ap.add_argument("--every", type=int, default=30, help="seconds between checks (live mode)")
+    ap.add_argument("--every", type=int, default=5, help="seconds between checks (live mode)")
     ap.add_argument("--backtest", action="store_true", help="test the strategy on recent history")
     ap.add_argument("--demo", action="store_true", help="backtest on fake prices (no internet)")
     args = ap.parse_args()
