@@ -68,3 +68,16 @@ On Windows PowerShell, use `$env:TELEGRAM_BOT_TOKEN="..."` instead.
 This is a learning tool, not financial advice. No strategy wins all the time, and losing streaks will happen.
 Run `--backtest` first, then paper trade or use a demo account before you risk real money.
 Never risk more than you can afford to lose.
+
+## iPhone app
+
+`app/` holds the same robot as a web app that runs in Safari, with no install and no computer needed.
+It reads the live gold price, draws the chart with the EMAs and signal arrows, and shows a big **BUY / SELL / CLOSE / HOLD / WAIT** card.
+When a trade is open, the card also shows entry, stop loss, take profit and your live P/L.
+It refreshes every 15 seconds. It also warns you to **CLOSE** as soon as the live candle touches your stop or target, without waiting for the candle to finish.
+
+1. Host the `app/` folder on any static host, such as Netlify (drag the folder onto app.netlify.com/drop) or GitHub Pages.
+2. Open the link in Safari on your iPhone, tap **Share**, then **Add to Home Screen**. It opens full screen like an app.
+3. Tap **Turn on sound alerts** to get a chime on each new signal. This also keeps the screen awake.
+
+iPhone only runs web apps while they are on screen. To get alerts while the phone is locked, run `gold_bot.py` on a computer or server with Telegram set up (see above).

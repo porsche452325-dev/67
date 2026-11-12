@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Gold Signal Bot</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gold Bot">
+<meta name="theme-color" content="#0f1115">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+/* Layout: one phone-width column. Signal card first, chart, then numbers and history. */
+:root{
+  --bg:#0f1115; --panel:#171a21; --line:#262a33; --fg:#e8e6e1; --muted:#8a8f99;
+  --gold:#d9b25b; --buy:#26a69a; --sell:#ef5350; --close:#f0b429;
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:560px;margin:0 auto;
+  padding-top:calc(env(safe-area-inset-top,0px) + 10px);
+  padding-bottom:calc(env(safe-area-inset-bottom,0px) + 24px);
+  padding-left:max(14px,env(safe-area-inset-left,0px));
+  padding-right:max(14px,env(safe-area-inset-right,0px));
+  display:grid;gap:12px}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.brand{display:flex;align-items:baseline;gap:8px}
+.brand b{font-size:17px;letter-spacing:.02em}
+.brand span{color:var(--muted);font-size:12px}
+.price{font:600 22px var(--mono);font-variant-numeric:tabular-nums}
+.chg{font:12px var(--mono);text-align:right}
+.tabs{display:flex;gap:6px}
+.tabs button{flex:1;background:var(--panel);color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:8px 0;font:600 13px inherit}
+.tabs button.on{color:var(--bg);background:var(--gold);border-color:var(--gold)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.signal{border-width:2px;transition:border-color .3s}
+.signal .act{font:800 38px/1 -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:.04em}
+.signal .why{color:var(--muted);margin-top:6px;font-size:14px}
+.levels{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.levels div{background:var(--bg);border-radius:8px;padding:8px}
+.levels small{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.levels b{font:600 15px var(--mono);font-variant-numeric:tabular-nums}
+.pnl{margin-top:10px;font:600 14px var(--mono)}
+.s-BUY{border-color:var(--buy)} .s-BUY .act{color:var(--buy)}
+.s-SELL{border-color:var(--sell)} .s-SELL .act{color:var(--sell)}
+.s-CLOSE{border-color:var(--close)} .s-CLOSE .act{color:var(--close)}
+.s-HOLD .act{color:var(--fg)} .s-WAIT .act{color:var(--muted)}
+.flash{animation:flash 1s ease-out 3}
+@keyframes flash{50%{background:#2a2410}}
+@media (prefers-reduced-motion:reduce){.flash{animation:none}}
+canvas{width:100%;height:300px;display:block;border-radius:12px;background:var(--panel);border:1px solid var(--line)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stats .card{padding:10px}
+.stats small{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;display:block}
+.stats b{font:600 16px var(--mono)}
+h2{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:4px 0 0}
+ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+li{display:grid;grid-template-columns:62px 1fr auto;gap:8px;align-items:center;font-size:13px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+li .tag{font:700 12px var(--mono)}
+li .t{color:var(--muted);font:12px var(--mono)}
+li .r{font:12px var(--mono);text-align:right}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.btn{flex:1;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:11px;font:600 14px inherit}
+.btn.on{border-color:var(--gold);color:var(--gold)}
+.status{color:var(--muted);font-size:12px;text-align:center}
+.status.err{color:var(--sell)}
+.note{color:var(--muted);font-size:12px;line-height:1.5}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><b>XAU · Gold Bot</b><span id="src">PAXG/USDT</span></div>
+    <div><div class="price" id="price">—</div><div class="chg" id="chg">&nbsp;</div></div>
+  </header>
+
+  <div class="tabs" id="tabs">
+    <button data-tf="5m">M5</button><button data-tf="15m" class="on">M15</button>
+    <button data-tf="1h">H1</button><button data-tf="4h">H4</button>
+  </div>
+
+  <section class="card signal s-WAIT" id="sig">
+    <div class="act" id="act">LOADING</div>
+    <div class="why" id="why">Getting the live gold chart…</div>
+    <div class="levels" id="levels" hidden>
+      <div><small>Entry</small><b id="lvE">—</b></div>
+      <div><small>Stop loss</small><b id="lvS">—</b></div>
+      <div><small>Take profit</small><b id="lvT">—</b></div>
+    </div>
+    <div class="pnl" id="pnl" hidden></div>
+  </section>
+
+  <canvas id="chart" aria-label="Gold candlestick chart with EMA 9, 21 and 200"></canvas>
+
+  <div class="stats">
+    <div class="card"><small>Trend</small><b id="stTrend">—</b></div>
+    <div class="card"><small>RSI 14</small><b id="stRsi">—</b></div>
+    <div class="card"><small>ATR 14</small><b id="stAtr">—</b></div>
+  </div>
+
+  <div class="row">
+    <button class="btn" id="alertBtn">🔔 Turn on sound alerts</button>
+  </div>
+
+  <h2>Recent signals</h2>
+  <ul id="hist"><li><span class="t">—</span><span>No signals yet</span><span></span></li></ul>
+  <div class="note" id="score"></div>
+
+  <div class="status" id="status">Connecting…</div>
+  <p class="note">
+    <b>How it decides.</b> BUY when the 9 EMA crosses above the 21 EMA, price is above the 200 EMA, and RSI is 50–70.
+    SELL is the mirror (below the 200 EMA, RSI 30–50). Stop loss is 1.5 × ATR and take profit is 3 × ATR.
+    CLOSE when the stop or target is hit, or the EMAs cross back. Price is PAXG, a token backed by 1 oz of gold. It is
+    usually within a few dollars of XAUUSD, so place orders at your broker's prices. Not financial advice.
+  </p>
+</div>
+
+<script>
+"use strict";
+const CFG = { fast: 9, slow: 21, trend: 200, rsi: 14, atr: 14, sl: 1.5, tp: 3.0,
+  buyRsi: [50, 70], sellRsi: [30, 50], refreshMs: 15000 };
+const HOSTS = ["https://data-api.binance.vision", "https://api.binance.com", "https://api1.binance.com"];
+const $ = id => document.getElementById(id);
+let tf = "15m", hostIdx = 0, soundOn = false, audioCtx = null, lastAlertKey = null, wakeLock = null;
+
+try { tf = localStorage.getItem("tf") || tf; soundOn = false; lastAlertKey = localStorage.getItem("lastAlert"); } catch (e) {}
+
+// ---------- data ----------
+async function fetchCandles() {
+  let lastErr;
+  for (let n = 0; n < HOSTS.length; n++) {
+    const host = HOSTS[(hostIdx + n) % HOSTS.length];
+    try {
+      const r = await fetch(`${host}/api/v3/klines?symbol=PAXGUSDT&interval=${tf}&limit=600`, { cache: "no-store" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const rows = await r.json();
+      hostIdx = (hostIdx + n) % HOSTS.length;
+      return rows.map(k => ({ t: k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4], closeT: k[6] }));
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr;
+}
+
+// ---------- indicators ----------
+function ema(v, n) { const k = 2 / (n + 1); let p = null; return v.map(x => (p = p === null ? x : x * k + p * (1 - k))); }
+function rsi(v, n) {
+  const out = v.map(() => 50); let g = 0, l = 0;
+  for (let i = 1; i < v.length; i++) {
+    const ch = v[i] - v[i - 1], up = Math.max(ch, 0), dn = Math.max(-ch, 0);
+    if (i <= n) { g += up / n; l += dn / n; } else { g = (g * (n - 1) + up) / n; l = (l * (n - 1) + dn) / n; }
+    if (i >= n) out[i] = l === 0 ? 100 : 100 - 100 / (1 + g / l);
+  }
+  return out;
+}
+function atr(cs, n) {
+  let p = null;
+  return cs.map((c, i) => {
+    const pc = i ? cs[i - 1].c : c.c;
+    const tr = Math.max(c.h - c.l, Math.abs(c.h - pc), Math.abs(c.l - pc));
+    return (p = p === null ? tr : (p * (n - 1) + tr) / n);
+  });
+}
+
+// ---------- strategy (same rules as gold_bot.py) ----------
+function run(closed) {
+  const cl = closed.map(c => c.c);
+  const ind = { f: ema(cl, CFG.fast), s: ema(cl, CFG.slow), tr: ema(cl, CFG.trend), r: rsi(cl, CFG.rsi), a: atr(closed, CFG.atr) };
+  let pos = null; const sigs = [];
+  const close = (price, i, why) => {
+    const pnl = pos.side === "LONG" ? price - pos.entry : pos.entry - price;
+    sigs.push({ act: "CLOSE", side: pos.side, price, t: closed[i].t, i, why, pnl }); pos = null;
+  };
+  for (let i = CFG.trend; i < closed.length; i++) {
+    const c = closed[i], f = ind.f, s = ind.s, r = ind.r[i], a = ind.a[i];
+    const up = f[i - 1] <= s[i - 1] && f[i] > s[i], dn = f[i - 1] >= s[i - 1] && f[i] < s[i];
+    if (pos) {
+      if (pos.side === "LONG") {
+        if (c.l <= pos.stop) close(pos.stop, i, "Stop loss hit");
+        else if (c.h >= pos.target) close(pos.target, i, "Take profit hit");
+        else if (dn) close(c.c, i, "Trend turned down (EMA cross)");
+      } else {
+        if (c.h >= pos.stop) close(pos.stop, i, "Stop loss hit");
+        else if (c.l <= pos.target) close(pos.target, i, "Take profit hit");
+        else if (up) close(c.c, i, "Trend turned up (EMA cross)");
+      }
+      continue;
+    }
+    if (up && c.c > ind.tr[i] && r >= CFG.buyRsi[0] && r <= CFG.buyRsi[1]) {
+      pos = { side: "LONG", entry: c.c, stop: c.c - CFG.sl * a, target: c.c + CFG.tp * a, t: c.t };
+      sigs.push({ act: "BUY", price: c.c, t: c.t, i, stop: pos.stop, target: pos.target,
+        why: `Uptrend (above EMA 200), EMA 9 crossed above EMA 21, RSI ${r.toFixed(0)}` });
+    } else if (dn && c.c < ind.tr[i] && r >= CFG.sellRsi[0] && r <= CFG.sellRsi[1]) {
+      pos = { side: "SHORT", entry: c.c, stop: c.c + CFG.sl * a, target: c.c - CFG.tp * a, t: c.t };
+      sigs.push({ act: "SELL", price: c.c, t: c.t, i, stop: pos.stop, target: pos.target,
+        why: `Downtrend (below EMA 200), EMA 9 crossed below EMA 21, RSI ${r.toFixed(0)}` });
+    }
+  }
+  return { ind, pos, sigs };
+}
+
+// ---------- rendering ----------
+const fmt = x => x.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const hhmm = t => new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+
+function showSignal(state, why, lv, pnlText) {
+  const el = $("sig");
+  el.className = "card signal s-" + state.split(" ")[0];
+  $("act").textContent = state;
+  $("why").textContent = why;
+  $("levels").hidden = !lv;
+  if (lv) { $("lvE").textContent = fmt(lv.entry); $("lvS").textContent = fmt(lv.stop); $("lvT").textContent = fmt(lv.target); }
+  $("pnl").hidden = !pnlText; if (pnlText) $("pnl").innerHTML = pnlText;
+}
+
+function render(candles) {
+  const live = candles[candles.length - 1];
+  const closed = candles.slice(0, -1);
+  const { ind, pos, sigs } = run(closed);
+  const j = closed.length - 1, last = sigs[sigs.length - 1];
+  const px = live.c;
+
+  $("price").textContent = fmt(px);
+  const prev = candles[Math.max(0, candles.length - 1 - Math.round(86400000 / (live.closeT - live.t + 1)))];
+  const d = px - prev.c;
+  $("chg").textContent = `${d >= 0 ? "+" : ""}${fmt(d)} (24h)`;
+  $("chg").style.color = d >= 0 ? "var(--buy)" : "var(--sell)";
+
+  const trendUp = closed[j].c > ind.tr[j];
+  $("stTrend").textContent = trendUp ? "UP ▲" : "DOWN ▼";
+  $("stTrend").style.color = trendUp ? "var(--buy)" : "var(--sell)";
+  $("stRsi").textContent = ind.r[j].toFixed(0);
+  $("stAtr").textContent = fmt(ind.a[j]);
+
+  // Decide what to show. A signal on the candle that just closed is "fresh".
+  let state, alertKey = null;
+  const fresh = last && last.i === j;
+  if (pos) {
+    // Intrabar check on the live candle: stop or target already touched?
+    const hitStop = pos.side === "LONG" ? live.l <= pos.stop : live.h >= pos.stop;
+    const hitTp = pos.side === "LONG" ? live.h >= pos.target : live.l <= pos.target;
+    const pl = pos.side === "LONG" ? px - pos.entry : pos.entry - px;
+    const plTxt = `Open P/L now: <span style="color:${pl >= 0 ? "var(--buy)" : "var(--sell)"}">${pl >= 0 ? "+" : ""}${fmt(pl)} $/oz</span>`;
+    if (hitStop || hitTp) {
+      state = "CLOSE";
+      showSignal(state, `Close your ${pos.side === "LONG" ? "buy" : "sell"} now: ${hitStop ? "stop loss" : "take profit"} touched on the live candle.`, pos, plTxt);
+      alertKey = "close-live-" + pos.t;
+    } else if (fresh) {
+      state = last.act;
+      showSignal(state, `${last.why}. New signal at ${hhmm(live.t)}.`, pos, plTxt);
+      alertKey = last.act + last.t;
+    } else {
+      state = pos.side === "LONG" ? "HOLD BUY" : "HOLD SELL";
+      showSignal(state, `In a ${pos.side === "LONG" ? "buy" : "sell"} since ${hhmm(pos.t)}. Keep it until the stop, the target, or an EMA cross back.`, pos, plTxt);
+    }
+  } else if (fresh && last.act === "CLOSE") {
+    state = "CLOSE";
+    showSignal(state, `Close your ${last.side === "LONG" ? "buy" : "sell"}: ${last.why}.`, null,
+      `Result: <span style="color:${last.pnl >= 0 ? "var(--buy)" : "var(--sell)"}">${last.pnl >= 0 ? "+" : ""}${fmt(last.pnl)} $/oz</span>`);
+    alertKey = "CLOSE" + last.t;
+  } else {
+    state = "WAIT";
+    const f = ind.f[j], s = ind.s[j];
+    let hint = trendUp ? "Uptrend. Waiting for EMA 9 to cross above EMA 21 for a BUY." : "Downtrend. Waiting for EMA 9 to cross below EMA 21 for a SELL.";
+    if (trendUp && f > s) hint = "Uptrend, but the cross already happened. Waiting for a fresh BUY setup.";
+    if (!trendUp && f < s) hint = "Downtrend, but the cross already happened. Waiting for a fresh SELL setup.";
+    showSignal(state, "No trade right now. " + hint, null, null);
+  }
+
+  if (alertKey && alertKey !== lastAlertKey) {
+    lastAlertKey = alertKey;
+    try { localStorage.setItem("lastAlert", alertKey); } catch (e) {}
+    $("sig").classList.remove("flash"); void $("sig").offsetWidth; $("sig").classList.add("flash");
+    beep(state.startsWith("BUY") ? "buy" : state.startsWith("SELL") ? "sell" : "close");
+  }
+
+  // History
+  const recent = sigs.slice(-10).reverse();
+  $("hist").innerHTML = recent.length ? recent.map(s => {
+    const col = s.act === "BUY" ? "var(--buy)" : s.act === "SELL" ? "var(--sell)" : "var(--close)";
+    const r = s.act === "CLOSE" ? `<span style="color:${s.pnl >= 0 ? "var(--buy)" : "var(--sell)"}">${s.pnl >= 0 ? "+" : ""}${fmt(s.pnl)}</span>` : "@ " + fmt(s.price);
+    return `<li><span class="tag" style="color:${col}">${s.act}</span><span class="t">${hhmm(s.t)}</span><span class="r">${r}</span></li>`;
+  }).join("") : `<li><span class="t">—</span><span>No signals in the loaded history</span><span></span></li>`;
+  const done = sigs.filter(s => s.act === "CLOSE");
+  if (done.length) {
+    const w = done.filter(s => s.pnl > 0).length, tot = done.reduce((a, s) => a + s.pnl, 0);
+    $("score").textContent = `On the loaded chart: ${done.length} closed trades, ${w} wins (${Math.round(100 * w / done.length)}%), total ${tot >= 0 ? "+" : ""}${fmt(tot)} $/oz. Past results don't guarantee future ones.`;
+  } else $("score").textContent = "";
+
+  draw(candles, ind, sigs, pos);
+}
+
+function draw(candles, ind, sigs, pos) {
+  const cv = $("chart"), dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, H = cv.clientHeight;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext("2d"); g.scale(dpr, dpr);
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const N = Math.min(80, candles.length), start = candles.length - N, view = candles.slice(start);
+  const padR = 58, padT = 10, padB = 18, cw = (W - padR) / N;
+  let hi = Math.max(...view.map(c => c.h)), lo = Math.min(...view.map(c => c.l));
+  if (pos) { hi = Math.max(hi, pos.stop, pos.target); lo = Math.min(lo, pos.stop, pos.target); }
+  const span = hi - lo || 1; hi += span * .04; lo -= span * .04;
+  const y = p => padT + (hi - p) / (hi - lo) * (H - padT - padB);
+  const x = i => (i - start) * cw + cw / 2;
+
+  g.font = "10px ui-monospace,Menlo,monospace"; g.fillStyle = css("--muted"); g.strokeStyle = css("--line"); g.lineWidth = 1;
+  for (let k = 0; k <= 4; k++) {
+    const p = lo + (hi - lo) * k / 4, yy = Math.round(y(p)) + .5;
+    g.beginPath(); g.moveTo(0, yy); g.lineTo(W - padR, yy); g.stroke();
+    g.fillText(fmt(p), W - padR + 4, yy + 3);
+  }
+  const line = (arr, col, w) => {
+    g.strokeStyle = col; g.lineWidth = w; g.beginPath();
+    for (let i = start; i < candles.length - 1; i++) { const X = x(i), Y = y(arr[i]); i === start ? g.moveTo(X, Y) : g.lineTo(X, Y); }
+    g.stroke();
+  };
+  view.forEach((c, k) => {
+    const i = start + k, X = x(i), upc = c.c >= c.o;
+    g.strokeStyle = g.fillStyle = upc ? css("--buy") : css("--sell");
+    g.beginPath(); g.moveTo(X, y(c.h)); g.lineTo(X, y(c.l)); g.stroke();
+    const top = y(Math.max(c.o, c.c)), bh = Math.max(1, Math.abs(y(c.o) - y(c.c)));
+    g.globalAlpha = i === candles.length - 1 ? .55 : 1;
+    g.fillRect(X - cw * .35, top, cw * .7, bh); g.globalAlpha = 1;
+  });
+  line(ind.tr, "#7e57c2", 1.5); line(ind.s, "#42a5f5", 1.2); line(ind.f, css("--gold"), 1.2);
+
+  if (pos) {
+    [[pos.entry, css("--fg")], [pos.stop, css("--sell")], [pos.target, css("--buy")]].forEach(([p, col]) => {
+      g.setLineDash([4, 4]); g.strokeStyle = col; g.beginPath(); g.moveTo(0, y(p)); g.lineTo(W - padR, y(p)); g.stroke(); g.setLineDash([]);
+    });
+  }
+  sigs.filter(s => s.i >= start).forEach(s => {
+    const X = x(s.i), c = candles[s.i];
+    g.fillStyle = s.act === "BUY" ? css("--buy") : s.act === "SELL" ? css("--sell") : css("--close");
+    g.beginPath();
+    if (s.act === "BUY") { const Y = y(c.l) + 12; g.moveTo(X, Y - 7); g.lineTo(X - 5, Y + 2); g.lineTo(X + 5, Y + 2); }
+    else if (s.act === "SELL") { const Y = y(c.h) - 12; g.moveTo(X, Y + 7); g.lineTo(X - 5, Y - 2); g.lineTo(X + 5, Y - 2); }
+    else { g.arc(X, y(s.price), 4, 0, Math.PI * 2); }
+    g.fill();
+  });
+  const lp = candles[candles.length - 1].c, ly = y(lp);
+  g.fillStyle = css("--gold"); g.fillRect(W - padR, ly - 8, padR, 16);
+  g.fillStyle = css("--bg"); g.font = "bold 10px ui-monospace,Menlo,monospace"; g.fillText(fmt(lp), W - padR + 4, ly + 3);
+  g.fillStyle = css("--muted"); g.font = "10px -apple-system,sans-serif";
+  g.fillText("— EMA 9", 6, H - 5); g.fillStyle = "#42a5f5"; g.fillText("— EMA 21", 54, H - 5); g.fillStyle = "#7e57c2"; g.fillText("— EMA 200", 108, H - 5);
+}
+
+// ---------- alerts ----------
+function beep(kind) {
+  if (!soundOn || !audioCtx) return;
+  const notes = kind === "buy" ? [660, 880, 1100] : kind === "sell" ? [1100, 880, 660] : [880, 880, 880];
+  notes.forEach((f, k) => {
+    const o = audioCtx.createOscillator(), v = audioCtx.createGain(), t = audioCtx.currentTime + k * .22;
+    o.frequency.value = f; o.type = "sine"; v.gain.setValueAtTime(.0001, t);
+    v.gain.exponentialRampToValueAtTime(.4, t + .02); v.gain.exponentialRampToValueAtTime(.0001, t + .2);
+    o.connect(v).connect(audioCtx.destination); o.start(t); o.stop(t + .21);
+  });
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+}
+$("alertBtn").onclick = async () => {
+  soundOn = !soundOn;
+  if (soundOn) {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    await audioCtx.resume(); beep("buy");
+    try { wakeLock = await navigator.wakeLock?.request("screen"); } catch (e) {}
+  } else { try { await wakeLock?.release(); } catch (e) {} wakeLock = null; }
+  $("alertBtn").classList.toggle("on", soundOn);
+  $("alertBtn").textContent = soundOn ? "🔔 Sound alerts on (screen stays awake)" : "🔔 Turn on sound alerts";
+};
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState === "visible") { if (soundOn) { try { wakeLock = await navigator.wakeLock?.request("screen"); } catch (e) {} } tick(); }
+});
+
+// ---------- loop ----------
+document.querySelectorAll("#tabs button").forEach(b => {
+  b.classList.toggle("on", b.dataset.tf === tf);
+  b.onclick = () => {
+    tf = b.dataset.tf; try { localStorage.setItem("tf", tf); } catch (e) {}
+    document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("on", x === b));
+    lastAlertKey = null; tick();
+  };
+});
+let busy = false;
+async function tick() {
+  if (busy) return; busy = true;
+  try {
+    const c = await fetchCandles();
+    if (c.length < CFG.trend + 5) throw new Error("not enough history");
+    render(c);
+    $("status").className = "status";
+    $("status").textContent = `Live · updated ${new Date().toLocaleTimeString()} · refreshes every ${CFG.refreshMs / 1000}s`;
+  } catch (e) {
+    $("status").className = "status err";
+    $("status").textContent = `Can't reach the price feed (${e.message}). Retrying…`;
+  } finally { busy = false; }
+}
+window.addEventListener("resize", () => tick());
+tick(); setInterval(tick, CFG.refreshMs);
+</script>
+</body>
+</html>
